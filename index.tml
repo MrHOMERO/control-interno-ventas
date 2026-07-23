@@ -1,428 +1,240 @@
-# Let's create a comprehensive, beautifully structured HTML/JS single-file application 
-# that acts as a POS and Internal Control system, featuring:
-# 1. Uploading a PDF / text list of articles (with automatic parsing simulation or file reader using PDF.js / text parsing).
-# 2. Easy POS interface (similar to the user's photo).
-# 3. Daily, weekly, monthly sales reports.
-# 4. Discount control tracking for specific cuts/items.
-# 5. 100% free, runs locally in any browser, no subscriptions.
-
-html_content = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Interno - POS & Ventas</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-    </script>
-    <style>
-        :root {
-            --primary: #1e3a8a;
-            --primary-light: #3b82f6;
-            --accent: #10b981;
-            --danger: #ef4444;
-            --bg: #f3f4f6;
-            --card-bg: #ffffff;
-            --text: #1f2937;
-            --border: #d1d5db;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* Header */
-        header { background-color: var(--primary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        header h1 { font-size: 1.2rem; font-weight: 600; }
-        .nav-tabs { display: flex; gap: 10px; }
-        .nav-tab { background: rgba(255,255,255,0.1); border: none; color: white; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
-        .nav-tab.active, .nav-tab:hover { background: var(--primary-light); }
-
-        /* Main Container */
-        .container { flex: 1; display: flex; overflow: hidden; position: relative; }
-        .tab-content { display: none; width: 100%; height: 100%; padding: 20px; overflow-y: auto; }
-        .tab-content.active { display: flex; flex-direction: column; gap: 20px; }
-
-        /* POS View */
-        .pos-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; height: 100%; }
-        .pos-left { display: flex; flex-direction: column; gap: 15px; background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .pos-right { display: flex; flex-direction: column; gap: 15px; background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); justify-content: space-between; }
-        
-        .form-row { display: flex; gap: 10px; align-items: center; }
-        .form-row label { width: 100px; font-weight: 600; font-size: 0.9rem; }
-        .form-control { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; }
-        
-        /* Table */
-        .table-container { flex: 1; border: 1px solid var(--border); border-radius: 4px; overflow-y: auto; background: white; }
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
-        th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-        th { background: #f8fafc; font-weight: 600; position: sticky; top: 0; }
-        
-        /* Totals */
-        .totals-box { background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-        .total-row { display: flex; justify-content: space-between; font-size: 1rem; }
-        .total-row.grand { font-size: 1.3font-weight: bold; color: var(--primary); }
-
-        /* Buttons */
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: opacity 0.2s; }
-        .btn-primary { background: var(--primary-light); color: white; }
-        .btn-success { background: var(--accent); color: white; width: 100%; }
-        .btn-danger { background: var(--danger); color: white; padding: 5px 10px; font-size: 0.8rem; }
-        .btn:hover { opacity: 0.9; }
-
-        /* PDF Import area */
-        .upload-card { border: 2px dashed var(--border); padding: 30px; text-align: center; border-radius: 8px; background: white; cursor: pointer; }
-        .upload-card:hover { border-color: var(--primary-light); }
-
-        /* Reports Dashboard */
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
-        .metric-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid var(--primary-light); }
-        .metric-card h3 { font-size: 0.85rem; color: #6b7280; text-transform: uppercase; margin-bottom: 5px; }
-        .metric-card .value { font-size: 1.5rem; font-weight: bold; color: var(--text); }
-    </style>
+    <title>MiniPOS Cloud</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-light">
 
-    <header>
-        <h1>Control Interno - Sistema de Ventas</h1>
-        <div class="nav-tabs">
-            <button class="nav-tab active" onclick="switchTab('pos')">Punto de Venta (POS)</button>
-            <button class="nav-tab" onclick="switchTab('articles')">Artículos / PDF</button>
-            <button class="nav-tab" onclick="switchTab('reports')">Reportes & Descuentos</button>
+    <!-- Barra de Navegación -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="#"><i class="fas fa-cash-register me-2"></i>MiniPOS Cloud</a>
+            <div class="navbar-nav ms-auto flex-row">
+                <button class="btn btn-outline-light btn-sm me-2" onclick="switchTab('pos')"><i class="fas fa-store me-1"></i> Caja</button>
+                <button class="btn btn-outline-light btn-sm" onclick="switchTab('dashboard')"><i class="fas fa-chart-line me-1"></i> Dashboard</button>
+            </div>
         </div>
-    </header>
+    </nav>
 
-    <div class="container">
-        
-        <!-- TAB 1: POS -->
-        <div id="tab-pos" class="tab-content active">
-            <div class="pos-grid">
-                <div class="pos-left">
-                    <h3>Registrar Venta</h3>
-                    <div class="form-row">
-                        <label>Cliente:</label>
-                        <input type="text" id="clientName" class="form-control" value="Consumidor Final">
+    <main class="container py-3">
+        <!-- VISTA DE CAJA (POS) -->
+        <div id="view-pos" class="row">
+            <div class="col-lg-7 mb-4">
+                <h5 class="fw-bold text-secondary mb-3">Catálogo de Productos</h5>
+                <div class="row row-cols-2 row-cols-md-3 g-2" id="product-grid">
+                    <!-- Se llena con JavaScript -->
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0 fw-bold"><i class="fas fa-shopping-cart me-2"></i>Venta Actual</h5>
                     </div>
-                    <div class="form-row">
-                        <label>Artículo:</label>
-                        <select id="articleSelect" class="form-control" onchange="updatePrice()">
-                            <option value="">-- Seleccione un artículo o corte --</option>
-                        </select>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush" id="cart-items" style="max-height: 250px; overflow-y: auto;">
+                            <li class="list-group-item text-center text-muted py-4">El carrito está vacío</li>
+                        </ul>
                     </div>
-                    <div class="form-row">
-                        <label>Cantidad:</label>
-                        <input type="number" id="itemQty" class="form-control" value="1" min="0.01" step="any">
-                    </div>
-                    <div class="form-row">
-                        <label>Descuento (%):</label>
-                        <input type="number" id="itemDiscount" class="form-control" value="0" min="0" max="100">
-                    </div>
-                    <button class="btn btn-primary" onclick="addCartItem()">Agregar a la Lista (+)</button>
-
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Artículo</th>
-                                    <th>Cant</th>
-                                    <th>Precio</th>
-                                    <th>Dcto %</th>
-                                    <th>Subtotal</th>
-                                    <th>Acción</th>
-                                </tr>
-                            jsko>
-                            <tbody id="cartTableBody">
-                                <!-- Cart items go here -->
-                            </tbody>
-                        </table>
+                    <div class="card-footer bg-white py-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="fw-bold fs-5">Total:</span>
+                            <span class="fw-bold fs-5 text-success" id="cart-total">$U 0.00</span>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Método de Pago</label>
+                            <select class="form-select form-select-sm" id="payment-method">
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Tarjeta">Tarjeta de Crédito / Débito</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success w-100 py-2 fw-bold" onclick="checkout()"><i class="fas fa-check-circle me-2"></i>Cobrar</button>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="pos-right">
-                    <div>
-                        <h3>Resumen de Venta</h3>
-                        <br>
-                        <div class="totals-box">
-                            <div class="total-row"><span>Subtotal:</span> <span id="lblSubtotal">$0.00</span></div>
-                            <div class="total-row"><span>Descuentos:</span> <span id="lblDiscounts">$0.00</span></div>
-                            <hr style="border: 0; border-top: 1px solid var(--border);">
-                            <div class="total-row grand"><span>TOTAL:</span> <span id="lblTotal">$0.00</span></div>
+        <!-- VISTA DE DASHBOARD -->
+        <div id="view-dashboard" class="row" style="display: none;">
+            <div class="col-12 mb-3">
+                <h5 class="fw-bold text-secondary">Panel de Control / Back Office</h5>
+            </div>
+            <div class="col-6 mb-3">
+                <div class="card shadow-sm border-0 bg-white">
+                    <div class="card-body py-2">
+                        <small class="text-muted fw-bold">Ingresos Totales</small>
+                        <h5 class="fw-bold text-success mb-0" id="dash-revenue">$U 0.00</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 mb-3">
+                <div class="card shadow-sm border-0 bg-white">
+                    <div class="card-body py-2">
+                        <small class="text-muted fw-bold">Transacciones</small>
+                        <h5 class="fw-bold text-primary mb-0" id="dash-count">0</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-2">
+                        <h6 class="mb-0 fw-bold"><i class="fas fa-history me-2"></i>Historial de Ventas</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Método</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sales-history">
+                                    <tr><td colspan="3" class="text-center text-muted py-3">Sin ventas registradas</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <button class="btn btn-success" onclick="confirmSale()" style="padding: 15px; font-size: 1.1rem;">Confirmar Venta (F10)</button>
                 </div>
             </div>
         </div>
+    </main>
 
-        <!-- TAB 2: ARTICLES & PDF UPLOAD -->
-        <div id="tab-articles" class="tab-content">
-            <h2>Gestión de Artículos y Carga por PDF</h2>
-            <p>Sube un archivo PDF con la lista de precios o cópiadora/cárgala manualmente. El sistema extraerá los datos automáticamente.</p>
-            
-            <div class="upload-card" onclick="document.getElementById('pdfFile').click()">
-                <h3>📁 Haz clic aquí para subir tu PDF de Artículos</h3>
-                <p style="color: #6b7280; margin-top: 5px;">Se leerá el texto del PDF para armar la lista de precios automáticamente.</p>
-                <input type="file" id="pdfFile" accept=".pdf" style="display: none;" onchange="handlePDFUpload(event)">
-            </div>
-
-            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h3>Artículos Cargados en el Sistema</h3>
-                <br>
-                <div class="table-container" style="max-height: 300px;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Descripción / Corte</th>
-                                <th>Precio Base</th>
-                            </tr>
-                        </thead>
-                        <tbody id="articlesTableBody">
-                            <!-- Loaded articles -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB 3: REPORTS & DISCOUNTS -->
-        <div id="tab-reports" class="tab-content">
-            <h2>Reportes de Ventas y Control de Descuentos</h2>
-            
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <h3>Ventas del Día</h3>
-                    <div class="value" id="repDaily">$0.00</div>
-                </div>
-                <div class="metric-card">
-                    <h3>Ventas Semanales</h3>
-                    <div class="value" id="repWeekly">$0.00</div>
-                </div>
-                <div class="metric-card">
-                    <h3>Ventas Mensuales</h3>
-                    <div class="value" id="repMonthly">$0.00</div>
-                </div>
-                <div class="metric-card" style="border-left-color: var(--danger);">
-                    <h3>Total Descuentos Aplicados</h3>
-                    <div class="value" id="repDiscounts">$0.00</div>
-                </div>
-            </div>
-
-            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex: 1; display: flex; flex-direction: column;">
-                <h3>Historial de Transacciones Registradas</h3>
-                <br>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Fecha/Hora</th>
-                                <th>Cliente</th>
-                                <th>Artículos / Cortes</th>
-                                <th>Dcto Aplicado</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="salesHistoryBody">
-                            <!-- Sales history -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
+    <!-- Script de lógica de la aplicación -->
     <script>
-        // Initial Mock Database
-        let articles = [
-            { code: "C001", name: "Corte Especial (Asado)", price: 350 },
-            { code: "C002", name: "Corte Vacío", price: 420 },
-            { code: "C003", name: "Corte Entraña", price: 500 },
-            { code: "C004", name: "Milanesa Preparada", price: 280 }
+        // Base de datos local simulada
+        let products = [
+            { id: 1, name: 'Café Expreso', price: 120.0, stock: 50 },
+            { id: 2, name: 'Medialuna', price: 55.0, stock: 100 },
+            { id: 3, name: 'Jugo de Naranja', price: 150.0, stock: 30 }
         ];
-
         let cart = [];
-        let salesHistory = [];
+        let sales = [];
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-            document.getElementById('tab-' + tabId).classList.add('active');
-            event.target.classList.add('active');
-            if(tabId === 'reports') updateReports();
-        }
-
-        function renderArticles() {
-            const tbody = document.getElementById('articlesTableBody');
-            const select = document.getElementById('articleSelect');
-            tbody.innerHTML = '';
-            select.innerHTML = '<option value="">-- Seleccione un artículo o corte --</option>';
-
-            articles.forEach(art => {
-                tbody.innerHTML += `<tr><td>${art.code}</td><td>${art.name}</td><td>$${art.price.toFixed(2)}</td></tr>`;
-                select.innerHTML += `<option value="${art.code}">${art.code} - ${art.name} ($${art.price})</option>`;
+        function renderProducts() {
+            let grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+            products.forEach(p => {
+                grid.innerHTML += `
+                    <div class="col">
+                        <div class="card h-100 shadow-sm border-0 text-center p-2" style="cursor: pointer;" onclick="addToCart(${p.id})">
+                            <h6 class="fw-bold text-dark mb-1">${p.name}</h6>
+                            <p class="text-success fw-bold mb-1">$U ${p.price.toFixed(2)}</p>
+                            <span class="badge bg-light text-muted small">Stock: ${p.stock}</span>
+                        </div>
+                    </div>`;
             });
         }
 
-        function updatePrice() {
-            // Can be used if needed
-        }
-
-        function addCartItem() {
-            const select = document.getElementById('articleSelect');
-            const qty = parseFloat(document.getElementById('itemQty').value) || 1;
-            const discount = parseFloat(document.getElementById('itemDiscount').value) || 0;
-            
-            if(!select.value) {
-                alert('Por favor seleccione un artículo.');
-                return;
+        function addToCart(id) {
+            let p = products.find(x => x.id === id);
+            let item = cart.find(x => x.id === id);
+            if (item) {
+                if (item.quantity < p.stock) item.quantity++;
+                else alert('Stock máximo alcanzado');
+            } else {
+                if (p.stock > 0) cart.push({ id: p.id, name: p.name, price: p.price, quantity: 1 });
+                else alert('Producto sin stock');
             }
-
-            const art = articles.find(a => a.code === select.value);
-            const subtotal = art.price * qty;
-            const discountAmount = subtotal * (discount / 100);
-            const total = subtotal - discountAmount;
-
-            cart.push({
-                code: art.code,
-                name: art.name,
-                price: art.price,
-                qty: qty,
-                discount: discount,
-                discountAmount: discountAmount,
-                total: total
-            });
-
             renderCart();
         }
 
-        function removeCartItem(index) {
-            cart.splice(index, 1);
-            renderCart();
+        function updateQty(id, delta) {
+            let item = cart.find(x => x.id === id);
+            let p = products.find(x => x.id === id);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) cart = cart.filter(x => x.id !== id);
+                renderCart();
+            }
         }
 
         function renderCart() {
-            const tbody = document.getElementById('cartTableBody');
-            tbody.innerHTML = '';
-            let subtotalGen = 0;
-            let discountGen = 0;
-
-            cart.forEach((item, index) => {
-                subtotalGen += item.price * item.qty;
-                discountGen += item.discountAmount;
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${item.code}</td>
-                        <td>${item.name}</td>
-                        <td>${item.qty}</td>
-                        <td>$${item.price.toFixed(2)}</td>
-                        <td>${item.discount}%</td>
-                        <td>$${item.total.toFixed(2)}</td>
-                        <td><button class="btn btn-danger" onclick="removeCartItem(${index})">X</button></td>
-                    </tr>
-                `;
-            });
-
-            document.getElementById('lblSubtotal').innerText = '$' + subtotalGen.toFixed(2);
-            document.getElementById('lblDiscounts').innerText = '$' + discountGen.toFixed(2);
-            document.getElementById('lblTotal').innerText = '$' + (subtotalGen - discountGen).toFixed(2);
-        }
-
-        function confirmSale() {
-            if(cart.length === 0) {
-                alert('El carrito está vacío.');
+            let container = document.getElementById('cart-items');
+            let totalEl = document.getElementById('cart-total');
+            if (cart.length === 0) {
+                container.innerHTML = '<li class="list-group-item text-center text-muted py-4">El carrito está vacío</li>';
+                totalEl.innerText = '$U 0.00';
                 return;
             }
+            let html = '';
+            let total = 0;
+            cart.forEach(i => {
+                total += i.price * i.quantity;
+                html += `<li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        <span class="fw-bold small">${i.name}</span><br>
+                        <small class="text-muted">$U ${i.price} x ${i.quantity}</small>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary px-2" onclick="updateQty(${i.id}, -1)">-</button>
+                        <button class="btn btn-outline-secondary px-2 disabled">${i.quantity}</button>
+                        <button class="btn btn-outline-secondary px-2" onclick="updateQty(${i.id}, 1)">+</button>
+                    </div>
+                </li>`;
+            });
+            container.innerHTML = html;
+            totalEl.innerText = '$U ' + total.toFixed(2);
+        }
 
-            const client = document.getElementById('clientName').value || 'Consumidor Final';
-            const totalGen = cart.reduce((acc, item) => acc + item.total, 0);
-            const totalDisc = cart.reduce((acc, item) => acc + item.discountAmount, 0);
+        function checkout() {
+            if (cart.length === 0) return alert('El carrito está vacío.');
+            let total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+            let method = document.getElementById('payment-method').value;
 
-            salesHistory.push({
-                date: new Date().toLocaleString(),
-                client: client,
-                items: [...cart],
-                discount: totalDisc,
-                total: totalGen
+            // Descontar stock
+            cart.forEach(i => {
+                let p = products.find(x => x.id === i.id);
+                if (p) p.stock -= i.quantity;
             });
 
-            alert('¡Venta registrada con éxito para control interno!');
+            sales.push({ id: sales.length + 1, total, method });
             cart = [];
             renderCart();
-            document.getElementById('clientName').value = 'Consumidor Final';
+            renderProducts();
+            updateDashboard();
+            alert('¡Venta realizada con éxito!');
+            switchTab('dashboard');
         }
 
-        function updateReports() {
-            let daily = 0, weekly = 0, monthly = 0, totalDisc = 0;
-            const historyBody = document.getElementById('salesHistoryBody');
-            historyBody.innerHTML = '';
+        function updateDashboard() {
+            let totalRev = sales.reduce((sum, s) => sum + s.total, 0);
+            document.getElementById('dash-revenue').innerText = '$U ' + totalRev.toFixed(2);
+            document.getElementById('dash-count').innerText = sales.length;
 
-            salesHistory.forEach(sale => {
-                daily += sale.total;
-                weekly += sale.total;
-                monthly += sale.total;
-                totalDisc += sale.discount;
-
-                let itemsDesc = sale.items.map(i => `${i.qty}x ${i.name}`).join(', ');
-
-                historyBody.innerHTML += `
-                    <tr>
-                        <td>${sale.date}</td>
-                        <td>${sale.client}</td>
-                        <td>${itemsDesc}</td>
-                        <td>$${sale.discount.toFixed(2)}</td>
-                        <td><b>$${sale.total.toFixed(2)}</b></td>
-                    </tr>
-                `;
+            let historyEl = document.getElementById('sales-history');
+            if (sales.length === 0) {
+                historyEl.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Sin ventas registradas</td></tr>';
+                return;
+            }
+            let html = '';
+            sales.slice().reverse().forEach(s => {
+                html += `<tr>
+                    <td>#${s.id}</td>
+                    <td><span class="badge bg-light text-dark border">${s.method}</span></td>
+                    <td class="fw-bold text-success">$U ${s.total.toFixed(2)}</td>
+                </tr>`;
             });
-
-            document.getElementById('repDaily').innerText = '$' + daily.toFixed(2);
-            document.getElementById('repWeekly').innerText = '$' + weekly.toFixed(2);
-            document.getElementById('repMonthly').innerText = '$' + monthly.toFixed(2);
-            document.getElementById('repDiscounts').innerText = '$' + totalDisc.toFixed(2);
+            historyEl.innerHTML = html;
         }
 
-        // PDF Extraction logic using PDF.js
-        async function handlePDFUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async function() {
-                const typedarray = new Uint8Array(this.result);
-                try {
-                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                    let extractedText = "";
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const textContent = await page.getTextContent();
-                        textContent.items.forEach(item => {
-                            extractedText += item.str + " ";
-                        });
-                    }
-                    
-                    // Simple parser simulation for demonstration:
-                    alert("¡PDF leído con éxito! Se procesó el texto. (Puedes personalizar cómo el sistema interpreta los códigos y precios de tu PDF).");
-                    
-                    // Example of adding a new item parsed from PDF if desired
-                    articles.push({ code: "PDF01", name: "Artículo Importado de PDF", price: 450 });
-                    renderArticles();
-                } catch (err) {
-                    console.error(err);
-                    alert("Error al leer el archivo PDF.");
-                }
-            };
-            reader.readAsArrayBuffer(file);
+        function switchTab(tab) {
+            if (tab === 'pos') {
+                document.getElementById('view-pos').style.display = 'flex';
+                document.getElementById('view-dashboard').style.display = 'none';
+            } else {
+                document.getElementById('view-pos').style.display = 'none';
+                document.getElementById('view-dashboard').style.display = 'flex';
+            }
         }
 
-        // Initialize articles on load
-        renderArticles();
+        renderProducts();
     </script>
 </body>
 </html>
-"""
-
-with open("control_interno_pos.html", "w", encoding="utf-8") as f:
-    f.write(html_content)
-
-print("HTML file generated successfully.")
