@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniPOS Cloud</title>
+    <title>MiniPOS Cloud Pro</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome Icons -->
@@ -11,39 +11,65 @@
 </head>
 <body class="bg-light">
 
-    <!-- Barra de Navegación -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <!-- Navbar de Estado / Control de Turno -->
+    <nav class="navbar navbar-dark bg-dark shadow-sm py-2">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="#"><i class="fas fa-cash-register me-2"></i>MiniPOS Cloud</a>
-            <div class="navbar-nav ms-auto flex-row">
-                <button class="btn btn-outline-light btn-sm me-2" onclick="switchTab('pos')"><i class="fas fa-store me-1"></i> Caja</button>
-                <button class="btn btn-outline-light btn-sm" onclick="switchTab('dashboard')"><i class="fas fa-chart-line me-1"></i> Dashboard</button>
+            <span class="navbar-brand fw-bold fs-6"><i class="fas fa-cash-register me-2"></i>MiniPOS Cloud</span>
+            <div class="d-flex align-items-center gap-2">
+                <span id="badge-turno" class="badge bg-warning text-dark small">Turno Cerrado</span>
+                <button class="btn btn-outline-light btn-sm" onclick="abrirModalTurno()"><i class="fas fa-clock me-1"></i>Turno</button>
+                <button class="btn btn-outline-light btn-sm" onclick="switchTab('pos')"><i class="fas fa-store me-1"></i>Caja</button>
+                <button class="btn btn-outline-light btn-sm" onclick="switchTab('dashboard')"><i class="fas fa-chart-line me-1"></i>Admin</button>
             </div>
         </div>
     </nav>
 
     <main class="container py-3">
-        <!-- VISTA DE CAJA (POS) -->
+
+        <!-- ================= VISTA CAJA (POS) ================= -->
         <div id="view-pos" class="row">
+            <!-- Panel izquierdo: Búsqueda rápida por código y Catálogo -->
             <div class="col-lg-7 mb-4">
-                <h5 class="fw-bold text-secondary mb-3">Catálogo de Productos</h5>
+                <div class="card shadow-sm border-0 mb-3">
+                    <div class="card-body p-3 bg-white rounded">
+                        <label class="form-label small fw-bold text-muted"><i class="fas fa-barcode me-1"></i>Ingreso Rápido por Código</label>
+                        <div class="input-group">
+                            <input type="number" id="input-codigo-rapido" class="form-control" placeholder="Ej. 1, 2, 3..." onkeydown="if(event.key==='Enter') agregarPorCodigo()">
+                            <button class="btn btn-primary fw-bold px-4" onclick="agregarPorCodigo()">Agregar</button>
+                        </div>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Escribe el código numérico y presiona enter o el botón.</small>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-secondary mb-2">Catálogo de Productos</h6>
                 <div class="row row-cols-2 row-cols-md-3 g-2" id="product-grid">
-                    <!-- Se llena con JavaScript -->
+                    <!-- Se llena dinámicamente -->
                 </div>
             </div>
+
+            <!-- Panel derecho: Venta Actual y Cobro -->
             <div class="col-lg-5">
                 <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white py-3">
-                        <h5 class="mb-0 fw-bold"><i class="fas fa-shopping-cart me-2"></i>Venta Actual</h5>
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold fs-6"><i class="fas fa-shopping-cart me-2"></i>Venta Actual</h5>
+                        <span id="label-cajero-actual" class="badge bg-secondary small">Cajero: Ninguno</span>
                     </div>
                     <div class="card-body p-0">
-                        <ul class="list-group list-group-flush" id="cart-items" style="max-height: 250px; overflow-y: auto;">
-                            <li class="list-group-item text-center text-muted py-4">El carrito está vacío</li>
+                        <ul class="list-group list-group-flush" id="cart-items" style="max-height: 220px; overflow-y: auto;">
+                            <li class="list-group-item text-center text-muted py-4 small">El carrito está vacío</li>
                         </ul>
                     </div>
                     <div class="card-footer bg-white py-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="fw-bold fs-5">Total:</span>
+                        <div class="d-flex justify-content-between mb-1 small text-muted">
+                            <span>Subtotal:</span>
+                            <span id="cart-subtotal">$U 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 small text-danger">
+                            <span>Descuento aplicado:</span>
+                            <span id="cart-descuento-monto">-$U 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3 border-top pt-2">
+                            <span class="fw-bold fs-5">Total a Pagar:</span>
                             <span class="fw-bold fs-5 text-success" id="cart-total">$U 0.00</span>
                         </div>
                         <div class="mb-3">
@@ -53,21 +79,23 @@
                                 <option value="Tarjeta">Tarjeta de Crédito / Débito</option>
                             </select>
                         </div>
-                        <button class="btn btn-success w-100 py-2 fw-bold" onclick="checkout()"><i class="fas fa-check-circle me-2"></i>Cobrar</button>
+                        <button class="btn btn-success w-100 py-2 fw-bold" onclick="cobrarVenta()"><i class="fas fa-check-circle me-2"></i>Cobrar y Facturar</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- VISTA DE DASHBOARD -->
+        <!-- ================= VISTA PANEL ADMINISTRATIVO / DASHBOARD ================= -->
         <div id="view-dashboard" class="row" style="display: none;">
             <div class="col-12 mb-3">
-                <h5 class="fw-bold text-secondary">Panel de Control / Back Office</h5>
+                <h5 class="fw-bold text-secondary">Back Office / Gestión de Negocio</h5>
             </div>
+
+            <!-- Métricas rápidas del día -->
             <div class="col-6 mb-3">
                 <div class="card shadow-sm border-0 bg-white">
                     <div class="card-body py-2">
-                        <small class="text-muted fw-bold">Ingresos Totales</small>
+                        <small class="text-muted fw-bold">Ventas Totales</small>
                         <h5 class="fw-bold text-success mb-0" id="dash-revenue">$U 0.00</h5>
                     </div>
                 </div>
@@ -80,25 +108,148 @@
                     </div>
                 </div>
             </div>
-            <div class="col-12">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white py-2">
-                        <h6 class="mb-0 fw-bold"><i class="fas fa-history me-2"></i>Historial de Ventas</h6>
+
+            <!-- Pestañas de administración internas -->
+            <div class="col-12 mb-3">
+                <ul class="nav nav-pills nav-fill bg-white p-1 rounded shadow-sm small">
+                    <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#tab-productos">Productos y Códigos</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-categorias">Secciones y Descuentos</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-usuarios">Cajeros</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-historial">Cierre / Historial</a></li>
+                </ul>
+            </div>
+
+            <div class="col-12 tab-content">
+                <!-- Tab Productos -->
+                <div class="tab-pane fade show active" id="tab-productos">
+                    <div class="card shadow-sm border-0 mb-3">
+                        <div class="card-header bg-white py-2 fw-bold small">Añadir o Modificar Producto por Código</div>
+                        <div class="card-body bg-white">
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <input type="number" id="new-prod-code" class="form-control form-control-sm" placeholder="Código (ej. 4)">
+                                </div>
+                                <div class="col-8">
+                                    <input type="text" id="new-prod-name" class="form-control form-control-sm" placeholder="Nombre del artículo">
+                                </div>
+                                <div class="col-4">
+                                    <input type="number" step="0.01" id="new-prod-price" class="form-control form-control-sm" placeholder="Precio ($U)">
+                                </div>
+                                <div class="col-4">
+                                    <select id="new-prod-cat" class="form-select form-select-sm">
+                                        <!-- Se llena con categorías -->
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <button class="btn btn-primary btn-sm w-100" onclick="guardarProducto()">Guardar</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0 align-middle small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Cód</th>
+                                            <th>Artículo</th>
+                                            <th>Sección</th>
+                                            <th>Precio</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabla-productos-admin">
+                                        <!-- Dinámico -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Categorías y Descuentos -->
+                <div class="tab-pane fade" id="tab-categorias">
+                    <div class="card shadow-sm border-0 mb-3">
+                        <div class="card-header bg-white py-2 fw-bold small">Crear Sección y % de Descuento Predeterminado</div>
+                        <div class="card-body bg-white">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="text" id="new-cat-name" class="form-control form-control-sm" placeholder="Nombre (ej. Carnes)">
+                                </div>
+                                <div class="col-3">
+                                    <input type="number" id="new-cat-desc" class="form-control form-control-sm" placeholder="% Desc">
+                                </div>
+                                <div class="col-3">
+                                    <button class="btn btn-success btn-sm w-100" onclick="crearCategoria()">Crear</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body p-0">
                             <table class="table table-hover mb-0 align-middle small">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Método</th>
-                                        <th>Total</th>
+                                        <th>Sección</th>
+                                        <th>Descuento Predeterminado</th>
                                     </tr>
                                 </thead>
-                                <tbody id="sales-history">
-                                    <tr><td colspan="3" class="text-center text-muted py-3">Sin ventas registradas</td></tr>
+                                <tbody id="tabla-categorias-admin">
+                                    <!-- Dinámico -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Usuarios / Cajeros -->
+                <div class="tab-pane fade" id="tab-usuarios">
+                    <div class="card shadow-sm border-0 mb-3">
+                        <div class="card-header bg-white py-2 fw-bold small">Registrar Nuevo Cajero</div>
+                        <div class="card-body bg-white">
+                            <div class="input-group input-group-sm">
+                                <input type="text" id="new-user-name" class="form-control" placeholder="Nombre del cajero (ej. Juan Pérez)">
+                                <button class="btn btn-primary" onclick="crearUsuario()">Añadir Cajero</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body p-0">
+                            <table class="table table-hover mb-0 align-middle small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre del Cajero</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-usuarios-admin">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Historial y Cierre -->
+                <div class="tab-pane fade" id="tab-historial">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-history me-2"></i>Ventas por Turno, Cajero y Total</div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0 align-middle small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Cajero</th>
+                                            <th>Turno</th>
+                                            <th>Método</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sales-history">
+                                        <tr><td colspan="5" class="text-center text-muted py-3">Sin ventas registradas</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -106,135 +257,125 @@
         </div>
     </main>
 
-    <!-- Script de lógica de la aplicación -->
+    <!-- MODAL DE APERTURA DE TURNO -->
+    <div class="modal fade" id="modalTurno" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white py-2">
+                    <h5 class="modal-title fs-6 fw-bold"><i class="fas fa-cash-register me-2"></i>Apertura de Turno y Caja</h5>
+                </div>
+                <div class="modal-body small">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Seleccione Cajero</label>
+                        <select id="select-cajero" class="form-select form-select-sm">
+                            <!-- Dinámico -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Seleccione Turno</label>
+                        <select id="select-turno-tipo" class="form-select form-select-sm">
+                            <option value="Mañana">Mañana (08:00 - 16:00)</option>
+                            <option value="Tarde">Tarde (16:00 - 00:00)</option>
+                            <option value="Noche">Noche (00:00 - 08:00)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Dinero Inicial en Caja (Fondo fijo)</label>
+                        <input type="number" step="0.01" id="input-fondo-caja" class="form-control form-control-sm" value="5000.00">
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-success btn-sm w-100 fw-bold" onclick="iniciarTurno()">Abrir Turno</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Script de Gestión Completa -->
     <script>
-        // Base de datos local simulada
-        let products = [
-            { id: 1, name: 'Café Expreso', price: 120.0, stock: 50 },
-            { id: 2, name: 'Medialuna', price: 55.0, stock: 100 },
-            { id: 3, name: 'Jugo de Naranja', price: 150.0, stock: 30 }
+        // Estructuras de datos iniciales
+        let categorias = [
+            { nombre: 'Carnes', descuento: 10 },
+            { nombre: 'Almacén', descuento: 5 },
+            { nombre: 'Bebidas', descuento: 0 }
         ];
+
+        let productos = [
+            { codigo: 1, nombre: 'Asado Oferta', precio: 350.0, categoria: 'Carnes' },
+            { codigo: 2, nombre: 'Asado Especial', precio: 480.0, categoria: 'Carnes' },
+            { codigo: 3, nombre: 'Yerba Mate 1kg', precio: 220.0, categoria: 'Almacén' }
+        ];
+
+        let usuarios = ['Lucía Gómez', 'Carlos Martínez'];
+
+        let turnoActual = {
+            activo: false,
+            cajero: '',
+            tipo: '',
+            fondoInicial: 0
+        };
+
         let cart = [];
         let sales = [];
+        let modalTurnoInstance = null;
 
-        function renderProducts() {
-            let grid = document.getElementById('product-grid');
-            grid.innerHTML = '';
-            products.forEach(p => {
-                grid.innerHTML += `
-                    <div class="col">
-                        <div class="card h-100 shadow-sm border-0 text-center p-2" style="cursor: pointer;" onclick="addToCart(${p.id})">
-                            <h6 class="fw-bold text-dark mb-1">${p.name}</h6>
-                            <p class="text-success fw-bold mb-1">$U ${p.price.toFixed(2)}</p>
-                            <span class="badge bg-light text-muted small">Stock: ${p.stock}</span>
-                        </div>
-                    </div>`;
-            });
-        }
-
-        function addToCart(id) {
-            let p = products.find(x => x.id === id);
-            let item = cart.find(x => x.id === id);
-            if (item) {
-                if (item.quantity < p.stock) item.quantity++;
-                else alert('Stock máximo alcanzado');
-            } else {
-                if (p.stock > 0) cart.push({ id: p.id, name: p.name, price: p.price, quantity: 1 });
-                else alert('Producto sin stock');
-            }
-            renderCart();
-        }
-
-        function updateQty(id, delta) {
-            let item = cart.find(x => x.id === id);
-            let p = products.find(x => x.id === id);
-            if (item) {
-                item.quantity += delta;
-                if (item.quantity <= 0) cart = cart.filter(x => x.id !== id);
-                renderCart();
-            }
-        }
-
-        function renderCart() {
-            let container = document.getElementById('cart-items');
-            let totalEl = document.getElementById('cart-total');
-            if (cart.length === 0) {
-                container.innerHTML = '<li class="list-group-item text-center text-muted py-4">El carrito está vacío</li>';
-                totalEl.innerText = '$U 0.00';
-                return;
-            }
-            let html = '';
-            let total = 0;
-            cart.forEach(i => {
-                total += i.price * i.quantity;
-                html += `<li class="list-group-item d-flex justify-content-between align-items-center py-2">
-                    <div>
-                        <span class="fw-bold small">${i.name}</span><br>
-                        <small class="text-muted">$U ${i.price} x ${i.quantity}</small>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary px-2" onclick="updateQty(${i.id}, -1)">-</button>
-                        <button class="btn btn-outline-secondary px-2 disabled">${i.quantity}</button>
-                        <button class="btn btn-outline-secondary px-2" onclick="updateQty(${i.id}, 1)">+</button>
-                    </div>
-                </li>`;
-            });
-            container.innerHTML = html;
-            totalEl.innerText = '$U ' + total.toFixed(2);
-        }
-
-        function checkout() {
-            if (cart.length === 0) return alert('El carrito está vacío.');
-            let total = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-            let method = document.getElementById('payment-method').value;
-
-            // Descontar stock
-            cart.forEach(i => {
-                let p = products.find(x => x.id === i.id);
-                if (p) p.stock -= i.quantity;
-            });
-
-            sales.push({ id: sales.length + 1, total, method });
-            cart = [];
-            renderCart();
+        document.addEventListener("DOMContentLoaded", () => {
+            modalTurnoInstance = new bootstrap.Modal(document.getElementById('modalTurno'));
+            modalTurnoInstance.show();
+            actualizarSelectores();
+            renderAdminTables();
             renderProducts();
-            updateDashboard();
-            alert('¡Venta realizada con éxito!');
-            switchTab('dashboard');
+        });
+
+        function actualizarSelectores() {
+            // Categorías
+            let selCat = document.getElementById('new-prod-cat');
+            selCat.innerHTML = '';
+            categorias.forEach(c => {
+                selCat.innerHTML += `<option value="${c.nombre}">${c.nombre} (${c.descuento}% desc.)</option>`;
+            });
+
+            // Usuarios
+            let selUsr = document.getElementById('select-cajero');
+            selUsr.innerHTML = '';
+            if(usuarios.length === 0) {
+                selUsr.innerHTML = `<option value="">No hay cajeros creados</option>`;
+            } else {
+                usuarios.forEach(u => {
+                    selUsr.innerHTML += `<option value="${u}">${u}</option>`;
+                });
+            }
         }
 
-        function updateDashboard() {
-            let totalRev = sales.reduce((sum, s) => sum + s.total, 0);
-            document.getElementById('dash-revenue').innerText = '$U ' + totalRev.toFixed(2);
-            document.getElementById('dash-count').innerText = sales.length;
+        function abrirModalTurno() {
+            actualizarSelectores();
+            modalTurnoInstance.show();
+        }
 
-            let historyEl = document.getElementById('sales-history');
-            if (sales.length === 0) {
-                historyEl.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Sin ventas registradas</td></tr>';
+        function iniciarTurno() {
+            let cajero = document.getElementById('select-cajero').value;
+            let tipo = document.getElementById('select-turno-tipo').value;
+            let fondo = parseFloat(document.getElementById('input-fondo-caja').value) || 0;
+
+            if(!cajero) {
+                alert('Debe seleccionar o registrar un cajero primero.');
                 return;
             }
-            let html = '';
-            sales.slice().reverse().forEach(s => {
-                html += `<tr>
-                    <td>#${s.id}</td>
-                    <td><span class="badge bg-light text-dark border">${s.method}</span></td>
-                    <td class="fw-bold text-success">$U ${s.total.toFixed(2)}</td>
-                </tr>`;
-            });
-            historyEl.innerHTML = html;
+
+            turnoActual = { activo: true, cajero, tipo, fondoInicial: fondo };
+            
+            document.getElementById('badge-turno').className = 'badge bg-success text-white small';
+            document.getElementById('badge-turno').innerText = `Turno: ${tipo} (${cajero}) - Fondo: $U ${fondo}`;
+            document.getElementById('label-cajero-actual').innerText = `Cajero: ${cajero}`;
+
+            modalTurnoInstance.hide();
         }
 
         function switchTab(tab) {
             if (tab === 'pos') {
                 document.getElementById('view-pos').style.display = 'flex';
                 document.getElementById('view-dashboard').style.display = 'none';
-            } else {
-                document.getElementById('view-pos').style.display = 'none';
-                document.getElementById('view-dashboard').style.display = 'flex';
-            }
-        }
-
-        renderProducts();
-    </script>
-</body>
-</html>
+   
