@@ -19,7 +19,7 @@
             <span class="navbar-brand fw-bold fs-6"><i class="fas fa-cash-register me-2"></i>MiniPOS</span>
             <div class="d-flex align-items-center gap-1">
                 <!-- Botón de Turno Amarillo -->
-                <button id="badge-turno" class="btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTurno" onclick="abrirModalTurno()" style="font-size: 0.75rem;">
+                <button id="badge-turno" class="btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm" onclick="abrirModalTurno()" style="font-size: 0.75rem;">
                     <i class="fas fa-play-circle me-1"></i>Comenzar Turno
                 </button>
                 <button class="btn btn-outline-light btn-sm py-0 px-2" onclick="switchTab('pos')"><i class="fas fa-store"></i> Caja</button>
@@ -131,11 +131,11 @@
             </div>
 
             <div class="col-12 mb-3">
-                <ul class="nav nav-pills nav-fill bg-white p-1 rounded shadow-sm small">
+                <ul class="nav nav-pills nav-fill bg-white p-1 rounded shadow-sm small" id="adminTabs">
                     <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#tab-graficos">Gráficos</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-base-datos">Base de Datos Artículos (150)</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-categorias">Secciones y Desc.</a></li>
-                    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-usuarios">Cajeros y PIN</a></li>
+                    <li class="nav-item"><a class="nav-link" id="nav-link-usuarios" data-bs-toggle="pill" href="#tab-usuarios">Cajeros y PIN</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-historial">Historial</a></li>
                 </ul>
             </div>
@@ -267,40 +267,51 @@
         </div>
     </main>
 
-    <!-- MODAL DE SELECCIÓN DE TURNO, CAJERO Y PIN -->
+    <!-- MODAL DE SELECCIÓN DE TURNO, CAJERO Y PIN (DISEÑO ESTÉTICO MEJORADO) -->
     <div class="modal fade" id="modalTurno" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-dark text-white py-2">
-                    <h5 class="modal-title fs-6 fw-bold"><i class="fas fa-clock me-2"></i>Apertura de Turno</h5>
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="bg-gradient bg-dark text-white p-4 text-center position-relative">
+                    <div class="position-absolute top-0 start-0 w-100 h-100 bg-primary opacity-10"></div>
+                    <div class="mb-2">
+                        <span class="fa-stack fa-2x text-warning">
+                            <i class="fas fa-circle fa-stack-2x text-white opacity-25"></i>
+                            <i class="fas fa-cash-register fa-stack-1x"></i>
+                        </span>
+                    </div>
+                    <h4 class="fw-bold mb-1 fs-5">Apertura de Turno</h4>
+                    <p class="text-white-50 small mb-0">Seleccione su turno e ingrese sus credenciales autorizadas</p>
                 </div>
-                <div class="modal-body small">
+                <div class="modal-body p-4 bg-white">
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Seleccionar Turno</label>
-                        <select id="select-turno-tipo" class="form-select form-select-sm">
+                        <label class="form-label text-secondary fw-bold small"><i class="fas fa-clock text-primary me-1"></i> Turno de Trabajo</label>
+                        <select id="select-turno-tipo" class="form-select bg-light border-0 py-2 small">
                             <option value="Turno 1 (09:00 - 13:00)">Turno 1 (09:00 a. m. a 13:00 p. m.)</option>
                             <option value="Turno 2 (17:00 - 21:00)">Turno 2 (17:00 p. m. a 21:00 p. m.)</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Nombre del Cajero</label>
-                        <input type="text" id="input-nombre-cajero" class="form-control form-control-sm" placeholder="Escriba su nombre..." oninput="verificarExistenciaCajero()">
-                        <div id="aviso-nuevo-cajero" class="form-text text-primary fw-bold mt-1" style="display: none; font-size: 0.75rem;">
-                            <i class="fas fa-user-plus me-1"></i>Cajero nuevo: Se registrará y deberá elegir un PIN de 4 dígitos.
-                        </div>
+                        <label class="form-label text-secondary fw-bold small"><i class="fas fa-user text-primary me-1"></i> Nombre del Cajero</label>
+                        <input type="text" id="input-nombre-cajero" class="form-control bg-light border-0 py-2 small" placeholder="Ej. Juan Pérez">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold" id="label-pin-titulo">PIN de Acceso</label>
-                        <input type="password" maxlength="4" id="input-pin-ingreso" class="form-control form-control-sm" placeholder="Ingrese PIN de 4 dígitos">
+                        <label class="form-label text-secondary fw-bold small"><i class="fas fa-key text-primary me-1"></i> PIN de Acceso (4 dígitos)</label>
+                        <input type="password" maxlength="4" id="input-pin-ingreso" class="form-control bg-light border-0 py-2 small" placeholder="••••">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Dinero Inicial en Caja (Fondo)</label>
-                        <input type="number" step="0.01" id="input-fondo-caja" class="form-control form-control-sm" value="1000.00">
+                    <div class="mb-4">
+                        <label class="form-label text-secondary fw-bold small"><i class="fas fa-wallet text-primary me-1"></i> Dinero Inicial en Caja (Fondo)</label>
+                        <input type="number" step="0.01" id="input-fondo-caja" class="form-control bg-light border-0 py-2 small fw-bold text-success" value="1000.00">
                     </div>
-                </div>
-                <div class="modal-footer py-2">
-                    <!-- Botón Verde que inicia turno y redirige a la pantalla principal de Caja -->
-                    <button type="button" class="btn btn-success btn-sm w-100 fw-bold py-2" onclick="iniciarTurnoYRedirigir()">Iniciar Turno y Ir a Caja</button>
+
+                    <!-- Botones de Acción -->
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success py-2 fw-bold shadow-sm" onclick="iniciarTurnoYRedirigir()">
+                            <i class="fas fa-play-circle me-1"></i> Iniciar Turno y Ir a Caja
+                        </button>
+                        <button type="button" class="btn btn-outline-primary py-2 fw-bold border-0 bg-light text-primary small" onclick="irARegistrarCajero()">
+                            <i class="fas fa-user-plus me-1"></i> ¿No estás registrado? Registrarse ahora
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -310,23 +321,4 @@
     <div class="modal fade" id="modalAdminPin" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content">
-                <div class="modal-header bg-dark text-white py-2">
-                    <h5 class="modal-title fs-6 fw-bold">Seguridad Admin</h5>
-                </div>
-                <div class="modal-body small">
-                    <label class="form-label fw-bold">Ingrese PIN de Administrador (1234)</label>
-                    <input type="password" maxlength="4" id="admin-pin-input" class="form-control form-control-sm" placeholder="PIN">
-                </div>
-                <div class="modal-footer py-1">
-                    <button type="button" class="btn btn-primary btn-sm w-100" onclick="validarAdminPin()">Entrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-    <script>
-        let categorias = [
-            { nombre: 'Carnes', descuento: 10 
+    
