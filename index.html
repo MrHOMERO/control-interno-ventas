@@ -321,4 +321,492 @@
     <div class="modal fade" id="modalAdminPin" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content">
-    
+                <div class="modal-header bg-dark text-white py-2">
+                    <h5 class="modal-title fs-6 fw-bold">Seguridad Admin</h5>
+                </div>
+                <div class="modal-body small">
+                    <label class="form-label fw-bold">Ingrese PIN de Administrador (1234)</label>
+                    <input type="password" maxlength="4" id="admin-pin-input" class="form-control form-control-sm" placeholder="PIN">
+                </div>
+                <div class="modal-footer py-1">
+                    <button type="button" class="btn btn-primary btn-sm w-100" onclick="validarAdminPin()">Entrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let categorias = [
+            { nombre: 'Carnes', descuento: 10 },
+            { nombre: 'Almacén', descuento: 5 },
+            { nombre: 'Bebidas', descuento: 0 },
+            { nombre: 'Limpieza', descuento: 0 }
+        ];
+
+        // Generar automáticamente 150 artículos correlativos
+        let baseDatosArticulos = [];
+        const seccionesDisponibles = ['Carnes', 'Almacén', 'Bebidas', 'Limpieza'];
+        for (let i = 1; i <= 150; i++) {
+            let numeroStr = i < 10 ? '0' + i : (i < 100 ? '0' + i : i);
+            baseDatosArticulos.push({
+                codigo: i,
+                nombre: `Artículo Genérico ${numeroStr}`,
+                precio: parseFloat((Math.random() * 400 + 50).toFixed(2)),
+                categoria: seccionesDisponibles[(i - 1) % seccionesDisponibles.length]
+            });
+        }
+
+        let usuarios = [
+            { nombre: 'Cajero1', pin: '1234' }
+        ];
+
+        let turnoActual = {
+            activo: false,
+            cajero: '',
+            tipo: '',
+            fondoInicial: 0,
+            efectivoVentas: 0
+        };
+
+        let cart = [];
+        let sales = [];
+        let modalTurnoInstance = null;
+        let modalAdminInstance = null;
+        let salesChartObj = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            modalTurnoInstance = new bootstrap.Modal(document.getElementById('modalTurno'));
+            modalAdminInstance = new bootstrap.Modal(document.getElementById('modalAdminPin'));
+            
+            // Abre el modal automáticamente al cargar la página
+            modalTurnoInstance.show();
+
+            actualizarSelectores();
+            renderAdminTables();
+            renderProducts();
+            inicializarGrafico();
+        });
+
+        function actualizarSelectores() {
+            let selCat = document.getElementById('db-cat');
+            selCat.innerHTML = '';
+            categorias.forEach(c => {
+                selCat.innerHTML += `<option value="${c.nombre}">${c.nombre} (${c.descuento}% desc.)</option>`;
+            });
+        }
+
+        function abrirModalTurno() {
+            document.getElementById('input-nombre-cajero').value = '';
+            document.getElementById('input-pin-ingreso').value = '';
+            if(modalTurnoInstance) {
+                modalTurnoInstance.show();
+            }
+        }
+
+        function irARegistrarCajero() {
+            modalTurnoInstance.hide();
+            // Abre administración directamente en la pestaña de usuarios/cajeros
+            document.getElementById('view-pos').style.display = 'none';
+            document.getElementById('view-dashboard').style.display = 'flex';
+            
+            // Activa visualmente la pestaña de usuarios mediante Bootstrap Tab API
+            let tabTrigger = new bootstrap.Tab(document.getElementById('nav-link-usuarios'));
+            tabTrigger.show();
+            renderAdminTables();
+        }
+
+        function iniciarTurnoYRedirigir() {
+            let tipoTurno = document.getElementById('select-turno-tipo').value;
+            let cajeroNombre = document.getElementById('input-nombre-cajero').value.trim();
+            let pinIngresado = document.getElementById('input-pin-ingreso').value.trim();
+            let fondo = parseFloat(document.getElementById('input-fondo-caja').value) || 0;
+
+            if(cajeroNombre === '') {
+                alert('Por favor, escriba el nombre del cajero.');
+                return;
+            }
+
+            if(pinIngresado.length !== 4) {
+                alert('El PIN debe tener exactamente 4 dígitos.');
+                return;
+            }
+
+            let userObj = usuarios.find(u => u.nombre.toLowerCase() === cajeroNombre.toLowerCase());
+
+            if(!userObj) {
+                alert('El cajero no está registrado. Haga clic en "Registrarse ahora" para crearlo en el panel.');
+                return;
+            }
+
+            if(userObj.pin !== pinIngresado) {
+                alert('PIN incorrecto. Intente nuevamente.');
+                return;
+            }
+
+            turnoActual = { 
+                activo: true, 
+                cajero: userObj.nombre, 
+                tipo: tipoTurno, 
+                fondoInicial: fondo, 
+                efectivoVentas: 0 
+            };
+            
+            let btnTurno = document.getElementById('badge-turno');
+            let cortoTurno = tipoTurno.includes('09:00') ? 'Turno 1' : 'Turno 2';
+            btnTurno.className = 'btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm';
+            btnTurno.innerHTML = `<i class="fas fa-user-check me-1"></i>${cortoTurno}: ${userObj.nombre}`;
+            
+            document.getElementById('label-cajero-actual').innerText = `Cajero: ${userObj.nombre}`;
+            document.getElementById('label-turno-caja').innerText = tipoTurno;
+
+            actualizarCajaTiempoReal();
+            renderAdminTables();
+            
+            modalTurnoInstance.hide();
+            switchTab('pos');
+        }
+
+        function actualizarCajaTiempoReal() {
+            document.getElementById('caja-fondo').innerText = '$U ' + turnoActual.fondoInicial.toFixed(2);
+            document.getElementById('caja-efectivo').innerText = '$U ' + turnoActual.efectivoVentas.toFixed(2);
+            let totalCaja = turnoActual.fondoInicial + turnoActual.efectivoVentas;
+            document.getElementById('caja-total-actual').innerText = '$U ' + totalCaja.toFixed(2);
+        }
+
+        function switchTab(tab) {
+            document.getElementById('view-pos').style.display = 'flex';
+            document.getElementById('view-dashboard').style.display = 'none';
+        }
+
+        function verAdmin() {
+            modalAdminInstance.show();
+        }
+
+        function validarAdminPin() {
+            let pin = document.getElementById('admin-pin-input').value;
+            if(pin === '1234') {
+                modalAdminInstance.hide();
+                document.getElementById('admin-pin-input').value = '';
+                document.getElementById('view-pos').style.display = 'none';
+                document.getElementById('view-dashboard').style.display = 'flex';
+                renderAdminTables();
+                actualizarGrafico();
+            } else {
+                alert('PIN de Administrador incorrecto (Pruebe 1234)');
+            }
+        }
+
+        function renderProducts() {
+            let grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+            baseDatosArticulos.slice(0, 12).forEach(p => {
+                let catObj = categorias.find(c => c.nombre === p.categoria);
+                let desc = catObj ? catObj.descuento : 0;
+                let codigoFormateado = p.codigo < 10 ? '0' + p.codigo : p.codigo;
+                grid.innerHTML += `
+                    <div class="col">
+                        <div class="card h-100 shadow-sm border-0 text-center p-2" style="cursor: pointer;" onclick="agregarAlCarritoPorObjeto(${p.codigo})">
+                            <span class="badge bg-dark text-white align-self-start mb-1" style="font-size: 0.65rem;">Cód: ${codigoFormateado}</span>
+                            <h6 class="fw-bold text-dark mb-1 small text-truncate">${p.nombre}</h6>
+                            <p class="text-success fw-bold mb-1 small">$U ${p.precio.toFixed(2)}</p>
+                            <span class="badge bg-light text-muted" style="font-size: 0.65rem;">${p.categoria}</span>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function agregarPorCodigo() {
+            let codigoInput = parseInt(document.getElementById('input-codigo-rapido').value);
+            if(isNaN(codigoInput)) return;
+
+            let productoEncontrado = baseDatosArticulos.find(p => p.codigo === codigoInput);
+            if(!productoEncontrado) {
+                alert('Artículo no encontrado (Use códigos del 1 al 150).');
+                document.getElementById('input-codigo-rapido').value = '';
+                return;
+            }
+
+            agregarAlCarritoPorObjeto(productoEncontrado.codigo);
+            document.getElementById('input-codigo-rapido').value = '';
+            document.getElementById('input-codigo-rapido').focus();
+        }
+
+        function agregarAlCarritoPorObjeto(codigo) {
+            let p = baseDatosArticulos.find(x => x.codigo === codigo);
+            if(!p) return;
+
+            let catObj = categorias.find(c => c.nombre === p.categoria);
+            let descuentoPorcentaje = catObj ? catObj.descuento : 0;
+
+            let item = cart.find(x => x.codigo === codigo);
+            if (item) {
+                item.quantity++;
+            } else {
+                cart.push({ 
+                    codigo: p.codigo, 
+                    name: p.nombre, 
+                    price: p.precio, 
+                    descuentoPorcentaje: descuentoPorcentaje,
+                    quantity: 1 
+                });
+            }
+            renderCart();
+        }
+
+        function updateQty(codigo, delta) {
+            let item = cart.find(x => x.codigo === codigo);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) cart = cart.filter(x => x.codigo !== codigo);
+                renderCart();
+            }
+        }
+
+        function renderCart() {
+            let container = document.getElementById('cart-items');
+            let subtotalEl = document.getElementById('cart-subtotal');
+            let descuentoEl = document.getElementById('cart-descuento-monto');
+            let totalEl = document.getElementById('cart-total');
+
+            if (cart.length === 0) {
+                container.innerHTML = '<li class="list-group-item text-center text-muted py-4 small">El carrito está vacío</li>';
+                subtotalEl.innerText = '$U 0.00';
+                descuentoEl.innerText = '-$U 0.00';
+                totalEl.innerText = '$U 0.00';
+                return;
+            }
+
+            let html = '';
+            let subtotalBruto = 0;
+            let descuentoTotal = 0;
+
+            cart.forEach(i => {
+                let itemSubtotal = i.price * i.quantity;
+                let descMonto = itemSubtotal * (i.descuentoPorcentaje / 100);
+                subtotalBruto += itemSubtotal;
+                descuentoTotal += descMonto;
+                let codigoFormateado = i.codigo < 10 ? '0' + i.codigo : i.codigo;
+
+                html += `<li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        <span class="fw-bold small">[Cód: ${codigoFormateado}] ${i.name}</span><br>
+                        <small class="text-muted">$U ${i.price} x ${i.quantity} ${i.descuentoPorcentaje > 0 ? '(-'+i.descuentoPorcentaje+'%)' : ''}</small>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary px-2" onclick="updateQty(${i.codigo}, -1)">-</button>
+                        <button class="btn btn-outline-secondary px-2 disabled">${i.quantity}</button>
+                        <button class="btn btn-outline-secondary px-2" onclick="updateQty(${i.codigo}, 1)">+</button>
+                    </div>
+                </li>`;
+            });
+
+            let totalNeto = subtotalBruto - descuentoTotal;
+            container.innerHTML = html;
+            subtotalEl.innerText = '$U ' + subtotalBruto.toFixed(2);
+            descuentoEl.innerText = '-$U ' + descuentoTotal.toFixed(2);
+            totalEl.innerText = '$U ' + totalNeto.toFixed(2);
+        }
+
+        function cobrarVenta() {
+            if (!turnoActual.activo) {
+                alert('Debe iniciar turno antes de cobrar.');
+                abrirModalTurno();
+                return;
+            }
+            if (cart.length === 0) {
+                alert('El carrito está vacío.');
+                return;
+            }
+
+            let subtotalBruto = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+            let descuentoTotal = cart.reduce((sum, i) => sum + ((i.price * i.quantity) * (i.descuentoPorcentaje / 100)), 0);
+            let totalNeto = subtotalBruto - descuentoTotal;
+            let method = document.getElementById('payment-method').value;
+
+            if(method === 'Efectivo') {
+                turnoActual.efectivoVentas += totalNeto;
+            }
+
+            sales.push({ 
+                id: sales.length + 1, 
+                cajero: turnoActual.cajero,
+                turno: turnoActual.tipo,
+                total: totalNeto, 
+                method 
+            });
+
+            cart = [];
+            renderCart();
+            actualizarCajaTiempoReal();
+            updateDashboardData();
+            alert('¡Venta cobrada con éxito!');
+        }
+
+        function updateDashboardData() {
+            let totalRev = sales.reduce((sum, s) => sum + s.total, 0);
+            document.getElementById('dash-revenue').innerText = '$U ' + totalRev.toFixed(2);
+            document.getElementById('dash-count').innerText = sales.length;
+
+            let historyEl = document.getElementById('sales-history');
+            if (sales.length === 0) {
+                historyEl.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Sin ventas</td></tr>';
+                return;
+            }
+            let html = '';
+            sales.slice().reverse().forEach(s => {
+                html += `<tr>
+                    <td>#${s.id}</td>
+                    <td><span class="fw-bold">${s.cajero}</span></td>
+                    <td><span class="badge bg-light text-dark border">${s.turno}</span></td>
+                    <td><span class="badge bg-secondary">${s.method}</span></td>
+                    <td class="fw-bold text-success">$U ${s.total.toFixed(2)}</td>
+                </tr>`;
+            });
+            historyEl.innerHTML = html;
+        }
+
+        function guardarEnBaseDatos() {
+            let codigo = parseInt(document.getElementById('db-code').value);
+            let nombre = document.getElementById('db-name').value.trim();
+            let precio = parseFloat(document.getElementById('db-price').value);
+            let categoria = document.getElementById('db-cat').value;
+
+            if(!codigo || codigo < 1 || codigo > 150) {
+                alert('Ingrese un código válido entre 1 y 150.');
+                return;
+            }
+
+            let existente = baseDatosArticulos.find(p => p.codigo === codigo);
+            if(existente) {
+                if(nombre) existente.nombre = nombre;
+                if(!isNaN(precio)) existente.precio = precio;
+                existente.categoria = categoria;
+            }
+
+            document.getElementById('db-code').value = '';
+            document.getElementById('db-name').value = '';
+            document.getElementById('db-price').value = '';
+            renderAdminTables();
+            renderProducts();
+            alert('¡Artículo actualizado en la base de datos de 150 productos!');
+        }
+
+        function crearCategoria() {
+            let nombre = document.getElementById('new-cat-name').value.trim();
+            let descuento = parseFloat(document.getElementById('new-cat-desc').value);
+
+            if(!nombre || isNaN(descuento)) {
+                alert('Ingrese nombre y descuento.');
+                return;
+            }
+
+            let existente = categorias.find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
+            if(existente) {
+                existente.descuento = descuento;
+            } else {
+                categorias.push({ nombre, descuento });
+            }
+
+            document.getElementById('new-cat-name').value = '';
+            document.getElementById('new-cat-desc').value = '';
+            actualizarSelectores();
+            renderAdminTables();
+            renderProducts();
+            alert('Sección guardada.');
+        }
+
+        function crearUsuario() {
+            let nombre = document.getElementById('new-user-name').value.trim();
+            let pin = document.getElementById('new-user-pin').value.trim();
+
+            if(!nombre || pin.length !== 4) {
+                alert('Ingrese un nombre y un PIN válido de 4 dígitos.');
+                return;
+            }
+
+            let usr = usuarios.find(u => u.nombre.toLowerCase() === nombre.toLowerCase());
+            if(!usr) {
+                usuarios.push({ nombre, pin });
+            } else {
+                usr.pin = pin;
+            }
+
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-pin').value = '';
+            renderAdminTables();
+            alert('Cajero guardado con éxito. Ya puede iniciar turno.');
+        }
+
+        function renderAdminTables() {
+            let tBD = document.getElementById('tabla-bd-articulos');
+            tBD.innerHTML = '';
+            baseDatosArticulos.forEach(p => {
+                let catObj = categorias.find(c => c.nombre === p.categoria);
+                let desc = catObj ? catObj.descuento : 0;
+                let codigoFormateado = p.codigo < 10 ? '0' + p.codigo : p.codigo;
+                tBD.innerHTML += `<tr>
+                    <td><span class="badge bg-dark">${codigoFormateado}</span></td>
+                    <td class="fw-bold">${p.nombre}</td>
+                    <td>${p.categoria} (${desc}%)</td>
+                    <td class="text-success fw-bold">$U ${p.precio.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            let tCat = document.getElementById('tabla-categorias-admin');
+            tCat.innerHTML = '';
+            categorias.forEach(c => {
+                tCat.innerHTML += `<tr>
+                    <td class="fw-bold">${c.nombre}</td>
+                    <td><span class="badge bg-danger">${c.descuento}%</span></td>
+                </tr>`;
+            });
+
+            let tUsr = document.getElementById('tabla-usuarios-admin');
+            tUsr.innerHTML = '';
+            usuarios.forEach(u => {
+                tUsr.innerHTML += `<tr><td class="fw-bold">${u.nombre}</td><td><span class="badge bg-secondary">****</span></td></tr>`;
+            });
+
+            updateDashboardData();
+        }
+
+        function inicializarGrafico() {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            salesChartObj = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Sin ventas'],
+                    datasets: [{
+                        label: 'Ventas por Transacción ($U)',
+                        data: [0],
+                        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function actualizarGrafico() {
+            if(!salesChartObj) return;
+            if(sales.length === 0) {
+                salesChartObj.data.labels = ['Sin ventas'];
+                salesChartObj.data.datasets[0].data = [0];
+            } else {
+                salesChartObj.data.labels = sales.map(s => '#' + s.id + ' (' + s.cajero + ')');
+                salesChartObj.data.datasets[0].data = sales.map(s => s.total);
+            }
+            salesChartObj.update();
+        }
+    </script>
+</body>
+</html>
