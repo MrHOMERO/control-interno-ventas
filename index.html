@@ -467,7 +467,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE RESUMEN DE TURNO -->
+    <!-- MODAL DE RESUMEN DE TURNO Y CIERRE -->
     <div class="modal fade" id="modalResumenTurno" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
@@ -492,8 +492,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light py-2">
-                    <button type="button" class="btn btn-secondary btn-sm w-100 fw-bold" data-bs-dismiss="modal">Cerrar</button>
+                <div class="modal-footer bg-light py-2 justify-content-between">
+                    <button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-danger btn-sm fw-bold" onclick="cerrarTurnoDefinitivo()"><i class="fas fa-lock me-1"></i>Cierre de Turno</button>
                 </div>
             </div>
         </div>
@@ -533,16 +534,14 @@
         let sales = JSON.parse(localStorage.getItem('minipos_sales')) || [];
         let expenses = JSON.parse(localStorage.getItem('minipos_expenses')) || [];
 
-        let turnoActual = {
+        let turnoActual = JSON.parse(localStorage.getItem('minipos_turnoActual')) || {
             activo: false,
             cajero: '',
             tipo: '',
-            fondoInicial: 0,
-            efectivoVentas: 0,
-            efectivoGastos: 0
+            fondoInicial: 0
         };
 
-        let administradorActual = '';
+        let administradorActual = localStorage.getItem('minipos_adminActual') || '';
         let cart = [];
         let modalBienvenidaInstance = null;
         let modalTurnoInstance = null;
@@ -558,8 +557,15 @@
             modalGastoInstance = new bootstrap.Modal(document.getElementById('modalGasto'));
             modalResumenTurnoInstance = new bootstrap.Modal(document.getElementById('modalResumenTurno'));
             
-            // Mostrar pantalla inicial de bienvenida del administrador
-            modalBienvenidaInstance.show();
+            // Validar si ya había sesión o turno abierto guardado en LocalStorage
+            if (!administradorActual) {
+                modalBienvenidaInstance.show();
+            } else if (!turnoActual.activo) {
+                modalTurnoInstance.show();
+            } else {
+                // Restaurar interfaz del turno activo
+                restaurarEstadoTurnoActivo();
+            }
 
             actualizarSelectores();
             renderAdminTables();
@@ -589,9 +595,12 @@
                 return;
             }
             administradorActual = nombreAdmin;
+            localStorage.setItem('minipos_adminActual', administradorActual);
             modalBienvenidaInstance.hide();
-            // Abrir automáticamente el cuadro de diálogo de apertura de turno
-            modalTurnoInstance.show();
+            
+            if (!turnoActual.activo) {
+                modalTurnoInstance.show();
+            }
         }
 
         function guardarEnStorage() {
@@ -600,6 +609,8 @@
             localStorage.setItem('minipos_usuarios', JSON.stringify(usuarios));
             localStorage.setItem('minipos_sales', JSON.stringify(sales));
             localStorage.setItem('minipos_expenses', JSON.stringify(expenses));
+            localStorage.setItem('minipos_turnoActual', JSON.stringify(turnoActual));
+            localStorage.setItem('minipos_adminActual', administradorActual);
         }
 
         function actualizarSelectores() {
@@ -664,6 +675,31 @@
             modalResumenTurnoInstance.show();
         }
 
+        function cerrarTurnoDefinitivo() {
+            if (confirm('¿Está seguro de realizar el Cierre de Turno? Esto cerrará las cuentas actuales y dejará la caja en cero para el siguiente turno.')) {
+                turnoActual = {
+                    activo: false,
+                    cajero: '',
+                    tipo: '',
+                    fondoInicial: 0
+                };
+                guardarEnStorage();
+                
+                modalResumenTurnoInstance.hide();
+                
+                // Restablecer botón de turno en navbar
+                let btnTurno = document.getElementById('badge-turno');
+                btnTurno.className = 'btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm';
+                btnTurno.innerHTML = `<i class="fas fa-play-circle me-1"></i>Comenzar Turno`;
+                
+                document.getElementById('label-cajero-actual').innerText = `Cajero: Ninguno`;
+                document.getElementById('label-turno-caja').innerText = `Sin Turno`;
+                
+                actualizarCajaTiempoReal();
+                abrirModalTurno();
+            }
+        }
+
         function guardarGasto() {
             let motivo = document.getElementById('input-gasto-motivo').value.trim();
             let importe = parseFloat(document.getElementById('input-gasto-importe').value);
@@ -676,10 +712,6 @@
             if(isNaN(importe) || importe <= 0) {
                 alert('Ingrese un importe válido.');
                 return;
-            }
-
-            if(metodo === 'Efectivo') {
-                turnoActual.efectivoGastos += importe;
             }
 
             let nuevoGasto = {
@@ -735,41 +767,46 @@
                 return;
             }
 
-            let gastosEfectivoTurno = expenses
-                .filter(e => e.cajero === userObj.nombre && e.turno === tipoTurno && e.method === 'Efectivo')
-                .reduce((sum, e) => sum + e.importe, 0);
-
-            let ventasEfectivoTurno = sales
-                .filter(s => s.cajero === userObj.nombre && s.turno === tipoTurno && s.method === 'Efectivo')
-                .reduce((sum, s) => sum + s.total, 0);
-
             turnoActual = { 
                 activo: true, 
                 cajero: userObj.nombre, 
                 tipo: tipoTurno, 
-                fondoInicial: fondo, 
-                efectivoVentas: ventasEfectivoTurno,
-                efectivoGastos: gastosEfectivoTurno
+                fondoInicial: fondo 
             };
             
-            let btnTurno = document.getElementById('badge-turno');
-            let cortoTurno = tipoTurno.includes('09:00') ? 'Turno 1' : 'Turno 2';
-            btnTurno.className = 'btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm';
-            btnTurno.innerHTML = `<i class="fas fa-user-check me-1"></i>${cortoTurno}: ${userObj.nombre}`;
-            
-            document.getElementById('label-cajero-actual').innerText = `Cajero: ${userObj.nombre}`;
-            document.getElementById('label-turno-caja').innerText = tipoTurno;
-
-            actualizarCajaTiempoReal();
+            guardarEnStorage();
+            restaurarEstadoTurnoActivo();
             modalTurnoInstance.hide();
             switchTab('pos');
         }
 
+        function restaurarEstadoTurnoActivo() {
+            if(!turnoActual.activo) return;
+
+            let btnTurno = document.getElementById('badge-turno');
+            let cortoTurno = turnoActual.tipo.includes('09:00') ? 'Turno 1' : 'Turno 2';
+            btnTurno.className = 'btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm';
+            btnTurno.innerHTML = `<i class="fas fa-user-check me-1"></i>${cortoTurno}: ${turnoActual.cajero}`;
+            
+            document.getElementById('label-cajero-actual').innerText = `Cajero: ${turnoActual.cajero}`;
+            document.getElementById('label-turno-caja').innerText = turnoActual.tipo;
+
+            actualizarCajaTiempoReal();
+        }
+
         function actualizarCajaTiempoReal() {
-            document.getElementById('caja-fondo').innerText = '$U ' + turnoActual.fondoInicial.toFixed(2);
-            document.getElementById('caja-efectivo').innerText = '$U ' + turnoActual.efectivoVentas.toFixed(2);
-            document.getElementById('caja-gastos-efectivo').innerText = '-$U ' + turnoActual.efectivoGastos.toFixed(2);
-            let totalCaja = turnoActual.fondoInicial + turnoActual.efectivoVentas - turnoActual.efectivoGastos;
+            document.getElementById('caja-fondo').innerText = '$U ' + (turnoActual.activo ? turnoActual.fondoInicial.toFixed(2) : '0.00');
+            
+            let ventasTurno = sales.filter(s => s.cajero === turnoActual.cajero && s.turno === turnoActual.tipo);
+            let gastosTurno = expenses.filter(e => e.cajero === turnoActual.cajero && e.turno === turnoActual.tipo);
+
+            let totalEfecVentas = ventasTurno.filter(s => s.method === 'Efectivo').reduce((sum, s) => sum + s.total, 0);
+            let totalEfecGastos = gastosTurno.filter(e => e.method === 'Efectivo').reduce((sum, e) => sum + e.importe, 0);
+
+            document.getElementById('caja-efectivo').innerText = '$U ' + totalEfecVentas.toFixed(2);
+            document.getElementById('caja-gastos-efectivo').innerText = '-$U ' + totalEfecGastos.toFixed(2);
+            
+            let totalCaja = (turnoActual.activo ? turnoActual.fondoInicial : 0) + totalEfecVentas - totalEfecGastos;
             document.getElementById('caja-total-actual').innerText = '$U ' + totalCaja.toFixed(2);
         }
 
@@ -941,10 +978,6 @@
                 return sum + (aplicaDescuento ? itemSubtotal * (i.descuentoPorcentaje / 100) : 0);
             }, 0);
             let totalNeto = subtotalBruto - descuentoTotal;
-
-            if(metodoPagoActual === 'Efectivo') {
-                turnoActual.efectivoVentas += totalNeto;
-            }
 
             let itemsSnapshot = JSON.parse(JSON.stringify(cart));
 
