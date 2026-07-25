@@ -13,265 +13,251 @@
 </head>
 <body class="bg-light">
 
-    <!-- Navbar Limpia y Funcional -->
-    <nav class="navbar navbar-dark bg-dark shadow-sm py-2">
-        <div class="container-fluid">
-            <span class="navbar-brand fw-bold fs-6"><i class="fas fa-cash-register me-2"></i>MiniPOS Pro</span>
-            <div class="d-flex align-items-center gap-1">
-                <button id="badge-turno" type="button" class="btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm" onclick="abrirModalTurno()" style="font-size: 0.75rem;">
-                    <i class="fas fa-play-circle me-1"></i>Comenzar Turno
-                </button>
-                <button type="button" class="btn btn-outline-light btn-sm py-0 px-2" onclick="switchTab('pos')"><i class="fas fa-store"></i> Caja</button>
-                <button type="button" class="btn btn-outline-light btn-sm py-0 px-2" onclick="verAdmin()"><i class="fas fa-chart-line"></i> Admin</button>
+    <!-- ================= VISTA ACCESO / CREACIÓN DE ADMINISTRADOR ================= -->
+    <div id="view-auth" class="container d-flex justify-content-center align-items-center vh-100">
+        <div class="card shadow border-0 p-4" style="width: 100%; max-width: 400px;">
+            <div class="text-center mb-4">
+                <i class="fas fa-cash-register fa-3x text-primary mb-2"></i>
+                <h4 class="fw-bold">MiniPOS Pro</h4>
+                <p class="text-muted small" id="auth-subtitle">Configure o ingrese con su cuenta de Administrador</p>
             </div>
-        </div>
-    </nav>
-
-    <main class="container py-3">
-
-        <!-- ================= VISTA CAJA (POS) ================= -->
-        <div id="view-pos" class="row">
-            <div class="col-lg-7 mb-4">
-                <!-- Búsqueda por Nombre o Código -->
-                <div class="card shadow-sm border-0 mb-3">
-                    <div class="card-body p-3 bg-white rounded">
-                        <label class="form-label small fw-bold text-muted"><i class="fas fa-search me-1"></i>Búsqueda de Artículos (Código o Alfabética)</label>
-                        <div class="input-group">
-                            <input type="text" id="input-buscar-articulo" class="form-control" placeholder="Escriba código o nombre del artículo..." oninput="filtrarCatalogoRapido()">
-                            <button type="button" class="btn btn-primary fw-bold px-3" onclick="filtrarCatalogoRapido()"><i class="fas fa-search"></i></button>
-                        </div>
-                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Se muestran los artículos coincidentes (máx. 3).</small>
-                    </div>
+            <div id="auth-form-container">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Nombre de Usuario Admin</label>
+                    <input type="text" id="auth-user" class="form-control" placeholder="Ej. Admin">
                 </div>
-
-                <h6 class="fw-bold text-secondary mb-2">Catálogo Rápido (Máx. 3 Artículos)</h6>
-                <div class="row row-cols-1 g-2" id="product-grid" style="max-height: 380px; overflow-y: auto;">
-                    <!-- Dinámico -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">PIN de Administrador</label>
+                    <input type="password" id="auth-pin" class="form-control" placeholder="Ej. 1234" maxlength="6">
                 </div>
-            </div>
-
-            <div class="col-lg-5">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 fw-bold fs-6"><i class="fas fa-shopping-cart me-2"></i>Venta Actual</h5>
-                        <span id="label-cajero-actual" class="badge bg-secondary small">Cajero: Ninguno</span>
-                    </div>
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush" id="cart-items" style="max-height: 200px; overflow-y: auto;">
-                            <li class="list-group-item text-center text-muted py-4 small">El carrito está vacío</li>
-                        </ul>
-                    </div>
-                    <div class="card-footer bg-white py-3">
-                        <div class="d-flex justify-content-between mb-1 small text-muted">
-                            <span>Subtotal:</span>
-                            <span id="cart-subtotal">$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2 small text-danger">
-                            <span>Descuento aplicado:</span>
-                            <span id="cart-descuento-monto">-$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-3 border-top pt-2">
-                            <span class="fw-bold fs-5">Total a Pagar:</span>
-                            <span class="fw-bold fs-5 text-success" id="cart-total">$U 0.00</span>
-                        </div>
-                        
-                        <!-- SELECCIÓN DE MÉTODO DE PAGO -->
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">Seleccione Método de Cobro</label>
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="metodoPago" id="pago-efectivo" value="Efectivo" checked autocomplete="off" onchange="renderCart()">
-                                    <label class="btn btn-outline-success btn-sm w-100 py-2 small fw-bold" for="pago-efectivo"><i class="fas fa-money-bill-wave d-block mb-1"></i>Efectivo</label>
-                                </div>
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="metodoPago" id="pago-tarjeta" value="Tarjeta" autocomplete="off" onchange="renderCart()">
-                                    <label class="btn btn-outline-primary btn-sm w-100 py-2 small fw-bold" for="pago-tarjeta"><i class="fas fa-credit-card d-block mb-1"></i>Tarjeta</label>
-                                </div>
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="metodoPago" id="pago-transferencia" value="Transferencia" autocomplete="off" onchange="renderCart()">
-                                    <label class="btn btn-outline-info btn-sm w-100 py-2 small fw-bold text-dark" for="pago-transferencia"><i class="fas fa-exchange-alt d-block mb-1"></i>Transf.</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-success py-2 fw-bold" onclick="cobrarVenta()"><i class="fas fa-check-circle me-2"></i>Cobrar y Facturar</button>
-                            <button type="button" class="btn btn-outline-danger py-2 fw-bold small" onclick="abrirModalGasto()"><i class="fas fa-receipt me-2"></i>Registrar Gasto / Compra</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Control de Caja en Tiempo Real -->
-                <div class="card shadow-sm border-0 mt-3 bg-white">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="fw-bold text-dark small mb-0"><i class="fas fa-wallet me-1 text-primary"></i>Caja (<span id="label-turno-caja">Sin Turno</span>)</h6>
-                            <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2 fw-bold text-dark" style="font-size: 0.75rem;" onclick="abrirModalResumenTurno()"><i class="fas fa-clipboard-list me-1"></i>Resumen Turno</button>
-                        </div>
-                        <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted">Fondo Inicial:</span>
-                            <span class="fw-bold" id="caja-fondo">$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted">Efectivo en Ventas:</span>
-                            <span class="fw-bold text-success" id="caja-efectivo">$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted">Efectivo en Gastos:</span>
-                            <span class="fw-bold text-danger" id="caja-gastos-efectivo">-$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between small border-top pt-1">
-                            <span class="fw-bold text-dark">Efectivo Real en Caja:</span>
-                            <span class="fw-bold text-primary" id="caja-total-actual">$U 0.00</span>
-                        </div>
-                    </div>
+                <div class="d-grid">
+                    <!-- Botón cambiado a azul (btn-primary) -->
+                    <button type="button" class="btn btn-primary fw-bold py-2" onclick="procesarAutenticacionAdmin()">
+                        <i class="fas fa-lock-open me-2"></i>Ingresar / Crear Administrador
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- ================= VISTA PANEL ADMINISTRATIVO / DASHBOARD ================= -->
-        <div id="view-dashboard" class="row" style="display: none;">
-            <div class="col-12 mb-3 d-flex justify-content-between align-items-center">
-                <h5 class="fw-bold text-secondary mb-0">Panel de Administración Avanzado</h5>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchTab('pos')"><i class="fas fa-arrow-left me-1"></i>Volver a Caja</button>
-            </div>
-
-            <!-- Tarjetas de Resumen Rápido -->
-            <div class="col-3 mb-3">
-                <div class="card shadow-sm border-0 bg-white">
-                    <div class="card-body py-2">
-                        <small class="text-muted fw-bold">Ventas Totales</small>
-                        <h5 class="fw-bold text-success mb-0" id="dash-revenue">$U 0.00</h5>
-                    </div>
+    <!-- ================= APLICACIÓN PRINCIPAL (OCULTA HASTA LOGuearse) ================= -->
+    <div id="app-main" style="display: none;">
+        <!-- Navbar Limpia y Funcional -->
+        <nav class="navbar navbar-dark bg-dark shadow-sm py-2">
+            <div class="container-fluid">
+                <span class="navbar-brand fw-bold fs-6"><i class="fas fa-cash-register me-2"></i>MiniPOS Pro</span>
+                <div class="d-flex align-items-center gap-1">
+                    <button id="badge-turno" type="button" class="btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm" onclick="abrirModalTurno()" style="font-size: 0.75rem;">
+                        <i class="fas fa-play-circle me-1"></i>Comenzar Turno
+                    </button>
+                    <button type="button" class="btn btn-outline-light btn-sm py-0 px-2" onclick="switchTab('pos')"><i class="fas fa-store"></i> Caja</button>
+                    <button type="button" class="btn btn-outline-light btn-sm py-0 px-2" onclick="verAdmin()"><i class="fas fa-chart-line"></i> Admin</button>
                 </div>
             </div>
-            <div class="col-3 mb-3">
-                <div class="card shadow-sm border-0 bg-white">
-                    <div class="card-body py-2">
-                        <small class="text-muted fw-bold">Gastos Totales</small>
-                        <h5 class="fw-bold text-danger mb-0" id="dash-expenses">$U 0.00</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-3 mb-3">
-                <div class="card shadow-sm border-0 bg-white">
-                    <div class="card-body py-2">
-                        <small class="text-muted fw-bold">Transacciones</small>
-                        <h5 class="fw-bold text-primary mb-0" id="dash-count">0</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-3 mb-3">
-                <div class="card shadow-sm border-0 bg-white">
-                    <div class="card-body py-2">
-                        <small class="text-muted fw-bold">Cajeros</small>
-                        <h5 class="fw-bold text-dark mb-0" id="dash-cajeros-count">0</h5>
-                    </div>
-                </div>
-            </div>
+        </nav>
 
-            <!-- Pestañas de Admin -->
-            <div class="col-12 mb-3">
-                <ul class="nav nav-pills nav-fill bg-white p-1 rounded shadow-sm small" id="adminTabs" role="tablist">
-                    <li class="nav-item" role="presentation"><button class="nav-link active w-100" id="tab-rep-btn" data-bs-toggle="pill" data-bs-target="#tab-reportes" type="button"><i class="fas fa-calendar-alt me-1"></i>Resúmenes (D/S/M)</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-gra-btn" data-bs-toggle="pill" data-bs-target="#tab-graficos" type="button"><i class="fas fa-chart-bar me-1"></i>Gráficos</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-art-btn" data-bs-toggle="pill" data-bs-target="#tab-base-datos" type="button"><i class="fas fa-database me-1"></i>Artículos</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-cat-btn" data-bs-toggle="pill" data-bs-target="#tab-categorias" type="button"><i class="fas fa-tags me-1"></i>Secciones</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link w-100" id="nav-link-usuarios" data-bs-toggle="pill" data-bs-target="#tab-usuarios" type="button"><i class="fas fa-users me-1"></i>Cajeros y PIN</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-his-btn" data-bs-toggle="pill" data-bs-target="#tab-historial" type="button"><i class="fas fa-history me-1"></i>Historial</button></li>
-                </ul>
-            </div>
+        <main class="container py-3">
 
-            <div class="col-12 tab-content">
-                <!-- Tab Reportes -->
-                <div class="tab-pane fade show active" id="tab-reportes">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <div class="card shadow-sm border-0 bg-white h-100">
-                                <div class="card-body">
-                                    <h6 class="fw-bold text-primary mb-3"><i class="fas fa-sun me-1"></i>Resumen Diario</h6>
-                                    <div class="small text-secondary">
-                                        <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-diario-total" class="text-success">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-diario-gastos" class="text-danger">-$U 0.00</strong></div>
-                                        <hr class="my-1">
-                                        <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-diario-efectivo">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-diario-tarjeta">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-diario-transf">$U 0.00</strong></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card shadow-sm border-0 bg-white h-100">
-                                <div class="card-body">
-                                    <h6 class="fw-bold text-dark mb-3"><i class="fas fa-calendar-week me-1"></i>Resumen Semanal</h6>
-                                    <div class="small text-secondary">
-                                        <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-semanal-total" class="text-success">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-semanal-gastos" class="text-danger">-$U 0.00</strong></div>
-                                        <hr class="my-1">
-                                        <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-semanal-efectivo">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-semanal-tarjeta">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-semanal-transf">$U 0.00</strong></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card shadow-sm border-0 bg-white h-100">
-                                <div class="card-body">
-                                    <h6 class="fw-bold text-success mb-3"><i class="fas fa-calendar-alt me-1"></i>Resumen Mensual</h6>
-                                    <div class="small text-secondary">
-                                        <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-mensual-total" class="text-success">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-mensual-gastos" class="text-danger">-$U 0.00</strong></div>
-                                        <hr class="my-1">
-                                        <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-mensual-efectivo">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-mensual-tarjeta">$U 0.00</strong></div>
-                                        <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-mensual-transf">$U 0.00</strong></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab Gráficos -->
-                <div class="tab-pane fade" id="tab-graficos">
+            <!-- ================= VISTA CAJA (POS) ================= -->
+            <div id="view-pos" class="row">
+                <div class="col-lg-7 mb-4">
+                    <!-- Búsqueda por Lector de Código de Barras (Escáner SC402) o Alfabética -->
                     <div class="card shadow-sm border-0 mb-3">
-                        <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-chart-bar me-2"></i>Gráfico de Rendimiento</div>
-                        <div class="card-body bg-white">
-                            <canvas id="salesChart" style="max-height: 250px;"></canvas>
+                        <div class="card-body p-3 bg-white rounded">
+                            <label class="form-label small fw-bold text-muted"><i class="fas fa-barcode me-1"></i>Escáner / Búsqueda de Artículos (Compatible con Balanza)</label>
+                            <div class="input-group">
+                                <input type="text" id="input-buscar-articulo" class="form-control" placeholder="Pase el código de barras o escriba nombre..." oninput="filtrarCatalogoRapido()" onkeydown="manejarEnterEscanner(event)">
+                                <button type="button" class="btn btn-primary fw-bold px-3" onclick="filtrarCatalogoRapido()"><i class="fas fa-search"></i></button>
+                            </div>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">El lector SC402 sumará el artículo o el peso de la balanza automáticamente al presionar Enter.</small>
                         </div>
+                    </div>
+
+                    <h6 class="fw-bold text-secondary mb-2">Catálogo Rápido (Máx. 3 Artículos)</h6>
+                    <div class="row row-cols-1 g-2" id="product-grid" style="max-height: 380px; overflow-y: auto;">
+                        <!-- Dinámico -->
                     </div>
                 </div>
 
-                <!-- Tab Base de Datos Artículos -->
-                <div class="tab-pane fade" id="tab-base-datos">
-                    <div class="card shadow-sm border-0 mb-3">
-                        <div class="card-header bg-white py-2 fw-bold small">Modificar o Agregar Artículo (01 al 50)</div>
-                        <div class="card-body bg-white">
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <input type="number" id="db-code" class="form-control form-control-sm" placeholder="Código (1-50)">
-                                </div>
-                                <div class="col-8">
-                                    <input type="text" id="db-name" class="form-control form-control-sm" placeholder="Nombre del artículo">
-                                </div>
-                                <div class="col-4">
-                                    <input type="number" step="0.01" id="db-price" class="form-control form-control-sm" placeholder="Precio ($U)">
-                                </div>
-                                <div class="col-4">
-                                    <select id="db-cat" class="form-select form-select-sm"></select>
-                                </div>
-                                <div class="col-4">
-                                    <button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="guardarEnBaseDatos()">Guardar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="col-lg-5">
                     <div class="card shadow-sm border-0">
-                        <div class="card-body p-0" style="max-height: 350px; overflow-y: auto;">
-                            <table class="table table-hover mb-0 align-middle small">
-                                <thead class="table-light sticky-top">
-                                    <tr><th>Cód</th><th>Artículo</th><th>Sección</th><th>Precio</th></tr>
-                                </thead>
-                             
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold fs-6"><i class="fas fa-shopping-cart me-2"></i>Venta Actual</h5>
+                            <span id="label-cajero-actual" class="badge bg-secondary small">Cajero: Ninguno</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush" id="cart-items" style="max-height: 200px; overflow-y: auto;">
+                                <li class="list-group-item text-center text-muted py-4 small">El carrito está vacío</li>
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-white py-3">
+                            <div class="d-flex justify-content-between mb-1 small text-muted">
+                                <span>Subtotal:</span>
+                                <span id="cart-subtotal">$U 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2 small text-danger">
+                                <span>Descuento de Carnicería (10%):</span>
+                                <span id="cart-descuento-monto">-$U 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-3 border-top pt-2">
+                                <span class="fw-bold fs-5">Total a Pagar:</span>
+                                <span class="fw-bold fs-5 text-success" id="cart-total">$U 0.00</span>
+                            </div>
+                            
+                            <!-- SELECCIÓN DE MÉTODO DE PAGO -->
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">Seleccione Método de Cobro</label>
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <input type="radio" class="btn-check" name="metodoPago" id="pago-efectivo" value="Efectivo" checked autocomplete="off" onchange="renderCart()">
+                                        <label class="btn btn-outline-success btn-sm w-100 py-2 small fw-bold" for="pago-efectivo"><i class="fas fa-money-bill-wave d-block mb-1"></i>Efectivo</label>
+                                    </div>
+                                    <div class="col-4">
+                                        <input type="radio" class="btn-check" name="metodoPago" id="pago-tarjeta" value="Tarjeta" autocomplete="off" onchange="renderCart()">
+                                        <label class="btn btn-outline-primary btn-sm w-100 py-2 small fw-bold" for="pago-tarjeta"><i class="fas fa-credit-card d-block mb-1"></i>Tarjeta</label>
+                                    </div>
+                                    <div class="col-4">
+                                        <input type="radio" class="btn-check" name="metodoPago" id="pago-transferencia" value="Transferencia" autocomplete="off" onchange="renderCart()">
+                                        <label class="btn btn-outline-info btn-sm w-100 py-2 small fw-bold text-dark" for="pago-transferencia"><i class="fas fa-exchange-alt d-block mb-1"></i>Transf.</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-success py-2 fw-bold" onclick="cobrarVenta()"><i class="fas fa-check-circle me-2"></i>Cobrar y Facturar</button>
+                                <button type="button" class="btn btn-outline-danger py-2 fw-bold small" onclick="abrirModalGasto()"><i class="fas fa-receipt me-2"></i>Registrar Gasto / Compra</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Control de Caja en Tiempo Real -->
+                    <div class="card shadow-sm border-0 mt-3 bg-white">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="fw-bold text-dark small mb-0"><i class="fas fa-wallet me-1 text-primary"></i>Caja (<span id="label-turno-caja">Sin Turno</span>)</h6>
+                                <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2 fw-bold text-dark" style="font-size: 0.75rem;" onclick="abrirModalResumenTurno()"><i class="fas fa-clipboard-list me-1"></i>Resumen Turno</button>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Fondo Inicial:</span>
+                                <span class="fw-bold" id="caja-fondo">$U 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Efectivo en Ventas:</span>
+                                <span class="fw-bold text-success" id="caja-efectivo">$U 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Efectivo en Gastos:</span>
+                                <span class="fw-bold text-danger" id="caja-gastos-efectivo">-$U 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between small border-top pt-1">
+                                <span class="fw-bold text-dark">Efectivo Real en Caja:</span>
+                                <span class="fw-bold text-primary" id="caja-total-actual">$U 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VISTA PANEL ADMINISTRATIVO / DASHBOARD ================= -->
+            <div id="view-dashboard" class="row" style="display: none;">
+                <div class="col-12 mb-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-secondary mb-0">Panel de Administración Avanzado</h5>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchTab('pos')"><i class="fas fa-arrow-left me-1"></i>Volver a Caja</button>
+                </div>
+
+                <!-- Tarjetas de Resumen Rápido -->
+                <div class="col-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-white">
+                        <div class="card-body py-2">
+                            <small class="text-muted fw-bold">Ventas Totales</small>
+                            <h5 class="fw-bold text-success mb-0" id="dash-revenue">$U 0.00</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-white">
+                        <div class="card-body py-2">
+                            <small class="text-muted fw-bold">Gastos Totales</small>
+                            <h5 class="fw-bold text-danger mb-0" id="dash-expenses">$U 0.00</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-white">
+                        <div class="card-body py-2">
+                            <small class="text-muted fw-bold">Transacciones</small>
+                            <h5 class="fw-bold text-primary mb-0" id="dash-count">0</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3 mb-3">
+                    <div class="card shadow-sm border-0 bg-white">
+                        <div class="card-body py-2">
+                            <small class="text-muted fw-bold">Cajeros</small>
+                            <h5 class="fw-bold text-dark mb-0" id="dash-cajeros-count">0</h5>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestañas de Admin -->
+                <div class="col-12 mb-3">
+                    <ul class="nav nav-pills nav-fill bg-white p-1 rounded shadow-sm small" id="adminTabs" role="tablist">
+                        <li class="nav-item" role="presentation"><button class="nav-link active w-100" id="tab-rep-btn" data-bs-toggle="pill" data-bs-target="#tab-reportes" type="button"><i class="fas fa-calendar-alt me-1"></i>Resúmenes (D/S/M)</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-gra-btn" data-bs-toggle="pill" data-bs-target="#tab-graficos" type="button"><i class="fas fa-chart-bar me-1"></i>Gráficos</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-art-btn" data-bs-toggle="pill" data-bs-target="#tab-base-datos" type="button"><i class="fas fa-database me-1"></i>Artículos</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-cat-btn" data-bs-toggle="pill" data-bs-target="#tab-categorias" type="button"><i class="fas fa-tags me-1"></i>Secciones</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="nav-link-usuarios" data-bs-toggle="pill" data-bs-target="#tab-usuarios" type="button"><i class="fas fa-users me-1"></i>Cajeros y PIN</button></li>
+                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-his-btn" data-bs-toggle="pill" data-bs-target="#tab-historial" type="button"><i class="fas fa-history me-1"></i>Historial</button></li>
+                    </ul>
+                </div>
+
+                <div class="col-12 tab-content">
+                    <!-- Tab Reportes -->
+                    <div class="tab-pane fade show active" id="tab-reportes">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="card shadow-sm border-0 bg-white h-100">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold text-primary mb-3"><i class="fas fa-sun me-1"></i>Resumen Diario</h6>
+                                        <div class="small text-secondary">
+                                            <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-diario-total" class="text-success">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-diario-gastos" class="text-danger">-$U 0.00</strong></div>
+                                            <hr class="my-1">
+                                            <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-diario-efectivo">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-diario-tarjeta">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-diario-transf">$U 0.00</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card shadow-sm border-0 bg-white h-100">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold text-dark mb-3"><i class="fas fa-calendar-week me-1"></i>Resumen Semanal</h6>
+                                        <div class="small text-secondary">
+                                            <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-semanal-total" class="text-success">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-semanal-gastos" class="text-danger">-$U 0.00</strong></div>
+                                            <hr class="my-1">
+                                            <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-semanal-efectivo">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-semanal-tarjeta">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-semanal-transf">$U 0.00</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card shadow-sm border-0 bg-white h-100">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold text-success mb-3"><i class="fas fa-calendar-alt me-1"></i>Resumen Mensual</h6>
+                                        <div class="small text-secondary">
+                                            <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-mensual-total" class="text-success">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-mensual-gastos" class="text-danger">-$U 0.00</strong></div>
+                                            <hr class="my-1">
+                                            <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-mensual-efectivo">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-mensual-tarjeta">$U 0.00</strong></div>
+                                            <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-mensual-transf">$U 0.00</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                       
