@@ -9,7 +9,6 @@
     <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Estilos para el overlay de autenticación inicial */
         #auth-overlay {
             position: fixed;
             top: 0;
@@ -26,25 +25,25 @@
 </head>
 <body class="bg-light">
 
-    <!-- ================= PANTALLA PUSH / MODAL DE ADMINISTRADOR INICIAL ================= -->
+    <!-- ================= PANTALLA PUSH DE ADMINISTRADOR ================= -->
     <div id="auth-overlay">
         <div class="card shadow border-0 p-4 m-3" style="width: 100%; max-width: 400px;">
             <div class="text-center mb-4">
                 <i class="fas fa-cash-register fa-3x text-primary mb-2"></i>
                 <h4 class="fw-bold">MiniPOS Pro</h4>
-                <p class="text-muted small" id="auth-subtitle">Configure su cuenta de Administrador para comenzar</p>
+                <p class="text-muted small">Ingrese credenciales de Administrador (Carlos / 2008#)</p>
             </div>
             <div class="mb-3">
                 <label class="form-label small fw-bold">Nombre de Usuario Admin</label>
-                <input type="text" id="auth-user" class="form-control" placeholder="Ej. Admin">
+                <input type="text" id="auth-user" class="form-control" placeholder="Carlos">
             </div>
             <div class="mb-3">
-                <label class="form-label small fw-bold">PIN de Administrador</label>
-                <input type="password" id="auth-pin" class="form-control" placeholder="Ej. 1234" maxlength="6">
+                <label class="form-label small fw-bold">Contraseña / PIN</label>
+                <input type="password" id="auth-pin" class="form-control" placeholder="2008#">
             </div>
             <div class="d-grid">
                 <button type="button" class="btn btn-primary fw-bold py-2" onclick="procesarAutenticacionAdmin()">
-                    <i class="fas fa-check-circle me-2"></i>Registrar / Ingresar al Sistema
+                    <i class="fas fa-check-circle me-2"></i>Ingresar al Sistema
                 </button>
             </div>
         </div>
@@ -189,11 +188,15 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Inicializar base de datos de artículos por defecto si está vacía
+            // Establecer el administrador predeterminado Carlos / 2008# en localStorage si no existe
+            if (!localStorage.getItem("minipos_admin")) {
+                localStorage.setItem("minipos_admin", JSON.stringify({ usuario: "Carlos", pin: "2008#" }));
+            }
+
+            // Inicializar artículos de prueba si no existen
             let articulosGuardados = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
-            for (let i = 1; i <= 200; i++) {
-                let existe = articulosGuardados.some(art => art.codigo == i);
-                if (!existe) {
+            if (articulosGuardados.length === 0) {
+                for (let i = 1; i <= 200; i++) {
                     articulosGuardados.push({
                         codigo: i,
                         nombre: `Artículo Carnicería ${i}`,
@@ -201,48 +204,33 @@
                         precio: (100.00).toFixed(2)
                     });
                 }
+                localStorage.setItem("minipos_articulos", JSON.stringify(articulosGuardados));
             }
-            localStorage.setItem("minipos_articulos", JSON.stringify(articulosGuardados));
 
-            // Verificar si ya existe un administrador guardado en la base de datos local
-            let adminGuardado = localStorage.getItem("minipos_admin");
-            if (adminGuardado) {
-                document.getElementById("auth-subtitle").innerText = "Ingrese su usuario y PIN de Administrador para acceder.";
-            } else {
-                document.getElementById("auth-subtitle").innerText = "Configure por primera vez su cuenta de Administrador.";
+            // Si ya hay una sesión activa previa de admin en este navegador, salta directo
+            if (localStorage.getItem("minipos_sesion_activa") === "true") {
+                document.getElementById("auth-overlay").style.display = "none";
+                document.getElementById("app-main").style.display = "block";
+                renderCatalogoRapido();
+                renderCart();
             }
         });
 
         function procesarAutenticacionAdmin() {
-            let usuarioInput = document.getElementById("auth-user");
-            let pinInput = document.getElementById("auth-pin");
-            
-            let usuario = usuarioInput ? usuarioInput.value.trim() : "";
-            let pin = pinInput ? pinInput.value.trim() : "";
+            let usuarioInput = document.getElementById("auth-user").value.trim();
+            let pinInput = document.getElementById("auth-pin").value.trim();
 
-            if (!usuario || !pin) {
-                alert("Por favor ingrese el nombre de usuario y el PIN.");
-                return;
-            }
+            let adminRegistrado = JSON.parse(localStorage.getItem("minipos_admin")) || { usuario: "Carlos", pin: "2008#" };
 
-            let adminRegistrado = JSON.parse(localStorage.getItem("minipos_admin"));
-            if (!adminRegistrado) {
-                // Guardar administrador en la base de datos local
-                localStorage.setItem("minipos_admin", JSON.stringify({ usuario, pin }));
+            if (usuarioInput.toLowerCase() === adminRegistrado.usuario.toLowerCase() && pinInput === adminRegistrado.pin) {
+                localStorage.setItem("minipos_sesion_activa", "true");
+                document.getElementById("auth-overlay").style.display = "none";
+                document.getElementById("app-main").style.display = "block";
+                renderCatalogoRapido();
+                renderCart();
             } else {
-                // Validar credenciales si ya existe
-                if (adminRegistrado.usuario.toLowerCase() !== usuario.toLowerCase() || adminRegistrado.pin !== pin) {
-                    alert("Usuario o PIN de Administrador incorrecto.");
-                    return;
-                }
+                alert("Usuario o Contraseña incorrectos. Use Carlos y 2008#");
             }
-
-            // Ocultar pantalla push de autenticación y mostrar la aplicación completa
-            document.getElementById("auth-overlay").style.display = "none";
-            document.getElementById("app-main").style.display = "block";
-            
-            renderCatalogoRapido();
-            renderCart();
         }
 
         function abrirModalTurno() {
@@ -376,4 +364,20 @@
                 contenedor.innerHTML = `<li class="list-group-item text-center text-muted py-4 small">El carrito está vacío</li>`;
                 document.getElementById("cart-subtotal").innerText = "$U 0.00";
                 document.getElementById("cart-descuento-monto").innerText = "-$U 0.00";
-                document.g
+                document.getElementById("cart-total").innerText = "$U 0.00";
+                return;
+            }
+
+            let subtotal = 0;
+            let descuentoTotal = 0;
+
+            carrito.forEach((item, index) => {
+                let totalItem = item.precio * item.cantidad;
+                subtotal += totalItem;
+
+                if (item.categoria === "Carniceria") {
+                    descuentoTotal += totalItem * 0.10;
+                }
+
+                contenedor.innerHTML += `
+                    <li class="list-g
