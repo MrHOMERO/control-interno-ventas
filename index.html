@@ -3,46 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniPOS Cloud Pro - Versión Funcional</title>
+    <title>MiniPOS Cloud Pro</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Chart.js para gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Estilos para el overlay de autenticación inicial */
+        #auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
 </head>
 <body class="bg-light">
 
-    <!-- ================= VISTA ACCESO / CREACIÓN DE ADMINISTRADOR ================= -->
-    <div id="view-auth" class="container d-flex justify-content-center align-items-center vh-100">
-        <div class="card shadow border-0 p-4" style="width: 100%; max-width: 400px;">
+    <!-- ================= PANTALLA PUSH / MODAL DE ADMINISTRADOR INICIAL ================= -->
+    <div id="auth-overlay">
+        <div class="card shadow border-0 p-4 m-3" style="width: 100%; max-width: 400px;">
             <div class="text-center mb-4">
                 <i class="fas fa-cash-register fa-3x text-primary mb-2"></i>
                 <h4 class="fw-bold">MiniPOS Pro</h4>
-                <p class="text-muted small" id="auth-subtitle">Configure o ingrese con su cuenta de Administrador</p>
+                <p class="text-muted small" id="auth-subtitle">Configure su cuenta de Administrador para comenzar</p>
             </div>
-            <div id="auth-form-container">
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">Nombre de Usuario Admin</label>
-                    <input type="text" id="auth-user" class="form-control" placeholder="Ej. Admin">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">PIN de Administrador</label>
-                    <input type="password" id="auth-pin" class="form-control" placeholder="Ej. 1234" maxlength="6">
-                </div>
-                <div class="d-grid">
-                    <!-- Botón cambiado a azul (btn-primary) -->
-                    <button type="button" class="btn btn-primary fw-bold py-2" onclick="procesarAutenticacionAdmin()">
-                        <i class="fas fa-lock-open me-2"></i>Ingresar / Crear Administrador
-                    </button>
-                </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Nombre de Usuario Admin</label>
+                <input type="text" id="auth-user" class="form-control" placeholder="Ej. Admin">
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">PIN de Administrador</label>
+                <input type="password" id="auth-pin" class="form-control" placeholder="Ej. 1234" maxlength="6">
+            </div>
+            <div class="d-grid">
+                <button type="button" class="btn btn-primary fw-bold py-2" onclick="procesarAutenticacionAdmin()">
+                    <i class="fas fa-check-circle me-2"></i>Registrar / Ingresar al Sistema
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- ================= APLICACIÓN PRINCIPAL (OCULTA HASTA LOGuearse) ================= -->
+    <!-- ================= APLICACIÓN PRINCIPAL (OCULTA INICIALMENTE) ================= -->
     <div id="app-main" style="display: none;">
-        <!-- Navbar Limpia y Funcional -->
+        <!-- Navbar Superior -->
         <nav class="navbar navbar-dark bg-dark shadow-sm py-2">
             <div class="container-fluid">
                 <span class="navbar-brand fw-bold fs-6"><i class="fas fa-cash-register me-2"></i>MiniPOS Pro</span>
@@ -57,26 +67,21 @@
         </nav>
 
         <main class="container py-3">
-
             <!-- ================= VISTA CAJA (POS) ================= -->
             <div id="view-pos" class="row">
                 <div class="col-lg-7 mb-4">
-                    <!-- Búsqueda por Lector de Código de Barras (Escáner SC402) o Alfabética -->
                     <div class="card shadow-sm border-0 mb-3">
                         <div class="card-body p-3 bg-white rounded">
-                            <label class="form-label small fw-bold text-muted"><i class="fas fa-barcode me-1"></i>Escáner / Búsqueda de Artículos (Compatible con Balanza)</label>
+                            <label class="form-label small fw-bold text-muted"><i class="fas fa-barcode me-1"></i>Escáner / Búsqueda de Artículos (SC402)</label>
                             <div class="input-group">
                                 <input type="text" id="input-buscar-articulo" class="form-control" placeholder="Pase el código de barras o escriba nombre..." oninput="filtrarCatalogoRapido()" onkeydown="manejarEnterEscanner(event)">
                                 <button type="button" class="btn btn-primary fw-bold px-3" onclick="filtrarCatalogoRapido()"><i class="fas fa-search"></i></button>
                             </div>
-                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">El lector SC402 sumará el artículo o el peso de la balanza automáticamente al presionar Enter.</small>
                         </div>
                     </div>
 
-                    <h6 class="fw-bold text-secondary mb-2">Catálogo Rápido (Máx. 3 Artículos)</h6>
-                    <div class="row row-cols-1 g-2" id="product-grid" style="max-height: 380px; overflow-y: auto;">
-                        <!-- Dinámico -->
-                    </div>
+                    <h6 class="fw-bold text-secondary mb-2">Catálogo Rápido</h6>
+                    <div class="row row-cols-1 g-2" id="product-grid" style="max-height: 380px; overflow-y: auto;"></div>
                 </div>
 
                 <div class="col-lg-5">
@@ -103,161 +108,272 @@
                                 <span class="fw-bold fs-5">Total a Pagar:</span>
                                 <span class="fw-bold fs-5 text-success" id="cart-total">$U 0.00</span>
                             </div>
-                            
-                            <!-- SELECCIÓN DE MÉTODO DE PAGO -->
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-muted">Seleccione Método de Cobro</label>
-                                <div class="row g-2">
-                                    <div class="col-4">
-                                        <input type="radio" class="btn-check" name="metodoPago" id="pago-efectivo" value="Efectivo" checked autocomplete="off" onchange="renderCart()">
-                                        <label class="btn btn-outline-success btn-sm w-100 py-2 small fw-bold" for="pago-efectivo"><i class="fas fa-money-bill-wave d-block mb-1"></i>Efectivo</label>
-                                    </div>
-                                    <div class="col-4">
-                                        <input type="radio" class="btn-check" name="metodoPago" id="pago-tarjeta" value="Tarjeta" autocomplete="off" onchange="renderCart()">
-                                        <label class="btn btn-outline-primary btn-sm w-100 py-2 small fw-bold" for="pago-tarjeta"><i class="fas fa-credit-card d-block mb-1"></i>Tarjeta</label>
-                                    </div>
-                                    <div class="col-4">
-                                        <input type="radio" class="btn-check" name="metodoPago" id="pago-transferencia" value="Transferencia" autocomplete="off" onchange="renderCart()">
-                                        <label class="btn btn-outline-info btn-sm w-100 py-2 small fw-bold text-dark" for="pago-transferencia"><i class="fas fa-exchange-alt d-block mb-1"></i>Transf.</label>
-                                    </div>
-                                </div>
-                            </div>
-
                             <div class="d-grid gap-2">
                                 <button type="button" class="btn btn-success py-2 fw-bold" onclick="cobrarVenta()"><i class="fas fa-check-circle me-2"></i>Cobrar y Facturar</button>
-                                <button type="button" class="btn btn-outline-danger py-2 fw-bold small" onclick="abrirModalGasto()"><i class="fas fa-receipt me-2"></i>Registrar Gasto / Compra</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Control de Caja en Tiempo Real -->
-                    <div class="card shadow-sm border-0 mt-3 bg-white">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="fw-bold text-dark small mb-0"><i class="fas fa-wallet me-1 text-primary"></i>Caja (<span id="label-turno-caja">Sin Turno</span>)</h6>
-                                <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2 fw-bold text-dark" style="font-size: 0.75rem;" onclick="abrirModalResumenTurno()"><i class="fas fa-clipboard-list me-1"></i>Resumen Turno</button>
-                            </div>
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span class="text-muted">Fondo Inicial:</span>
-                                <span class="fw-bold" id="caja-fondo">$U 0.00</span>
-                            </div>
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span class="text-muted">Efectivo en Ventas:</span>
-                                <span class="fw-bold text-success" id="caja-efectivo">$U 0.00</span>
-                            </div>
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span class="text-muted">Efectivo en Gastos:</span>
-                                <span class="fw-bold text-danger" id="caja-gastos-efectivo">-$U 0.00</span>
-                            </div>
-                            <div class="d-flex justify-content-between small border-top pt-1">
-                                <span class="fw-bold text-dark">Efectivo Real en Caja:</span>
-                                <span class="fw-bold text-primary" id="caja-total-actual">$U 0.00</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ================= VISTA PANEL ADMINISTRATIVO / DASHBOARD ================= -->
+            <!-- ================= VISTA PANEL ADMINISTRATIVO ================= -->
             <div id="view-dashboard" class="row" style="display: none;">
                 <div class="col-12 mb-3 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-secondary mb-0">Panel de Administración Avanzado</h5>
+                    <h5 class="fw-bold text-secondary mb-0">Panel de Administración</h5>
                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchTab('pos')"><i class="fas fa-arrow-left me-1"></i>Volver a Caja</button>
                 </div>
-
-                <!-- Tarjetas de Resumen Rápido -->
-                <div class="col-3 mb-3">
-                    <div class="card shadow-sm border-0 bg-white">
-                        <div class="card-body py-2">
-                            <small class="text-muted fw-bold">Ventas Totales</small>
-                            <h5 class="fw-bold text-success mb-0" id="dash-revenue">$U 0.00</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-3 mb-3">
-                    <div class="card shadow-sm border-0 bg-white">
-                        <div class="card-body py-2">
-                            <small class="text-muted fw-bold">Gastos Totales</small>
-                            <h5 class="fw-bold text-danger mb-0" id="dash-expenses">$U 0.00</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-3 mb-3">
-                    <div class="card shadow-sm border-0 bg-white">
-                        <div class="card-body py-2">
-                            <small class="text-muted fw-bold">Transacciones</small>
-                            <h5 class="fw-bold text-primary mb-0" id="dash-count">0</h5>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-3 mb-3">
-                    <div class="card shadow-sm border-0 bg-white">
-                        <div class="card-body py-2">
-                            <small class="text-muted fw-bold">Cajeros</small>
-                            <h5 class="fw-bold text-dark mb-0" id="dash-cajeros-count">0</h5>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pestañas de Admin -->
-                <div class="col-12 mb-3">
-                    <ul class="nav nav-pills nav-fill bg-white p-1 rounded shadow-sm small" id="adminTabs" role="tablist">
-                        <li class="nav-item" role="presentation"><button class="nav-link active w-100" id="tab-rep-btn" data-bs-toggle="pill" data-bs-target="#tab-reportes" type="button"><i class="fas fa-calendar-alt me-1"></i>Resúmenes (D/S/M)</button></li>
-                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-gra-btn" data-bs-toggle="pill" data-bs-target="#tab-graficos" type="button"><i class="fas fa-chart-bar me-1"></i>Gráficos</button></li>
-                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-art-btn" data-bs-toggle="pill" data-bs-target="#tab-base-datos" type="button"><i class="fas fa-database me-1"></i>Artículos</button></li>
-                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-cat-btn" data-bs-toggle="pill" data-bs-target="#tab-categorias" type="button"><i class="fas fa-tags me-1"></i>Secciones</button></li>
-                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="nav-link-usuarios" data-bs-toggle="pill" data-bs-target="#tab-usuarios" type="button"><i class="fas fa-users me-1"></i>Cajeros y PIN</button></li>
-                        <li class="nav-item" role="presentation"><button class="nav-link w-100" id="tab-his-btn" data-bs-toggle="pill" data-bs-target="#tab-historial" type="button"><i class="fas fa-history me-1"></i>Historial</button></li>
-                    </ul>
-                </div>
-
-                <div class="col-12 tab-content">
-                    <!-- Tab Reportes -->
-                    <div class="tab-pane fade show active" id="tab-reportes">
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <div class="card shadow-sm border-0 bg-white h-100">
-                                    <div class="card-body">
-                                        <h6 class="fw-bold text-primary mb-3"><i class="fas fa-sun me-1"></i>Resumen Diario</h6>
-                                        <div class="small text-secondary">
-                                            <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-diario-total" class="text-success">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-diario-gastos" class="text-danger">-$U 0.00</strong></div>
-                                            <hr class="my-1">
-                                            <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-diario-efectivo">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-diario-tarjeta">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-diario-transf">$U 0.00</strong></div>
-                                        </div>
-                                    </div>
+                <div class="col-12">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-2 fw-bold small">Gestión de Artículos (Base de Datos)</div>
+                        <div class="card-body bg-white">
+                            <div class="row g-2">
+                                <div class="col-3"><input type="number" id="db-code" class="form-control form-control-sm" placeholder="Código"></div>
+                                <div class="col-5"><input type="text" id="db-name" class="form-control form-control-sm" placeholder="Nombre"></div>
+                                <div class="col-2"><input type="number" step="0.01" id="db-price" class="form-control form-control-sm" placeholder="Precio"></div>
+                                <div class="col-2">
+                                    <select id="db-cat" class="form-select form-select-sm">
+                                        <option value="Carniceria">Carnicería (10%)</option>
+                                        <option value="Almacen">Almacén (0%)</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="guardarEnBaseDatos()"><i class="fas fa-save me-1"></i>Guardar / Actualizar</button>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="card shadow-sm border-0 bg-white h-100">
-                                    <div class="card-body">
-                                        <h6 class="fw-bold text-dark mb-3"><i class="fas fa-calendar-week me-1"></i>Resumen Semanal</h6>
-                                        <div class="small text-secondary">
-                                            <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-semanal-total" class="text-success">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-semanal-gastos" class="text-danger">-$U 0.00</strong></div>
-                                            <hr class="my-1">
-                                            <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-semanal-efectivo">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-semanal-tarjeta">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-semanal-transf">$U 0.00</strong></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card shadow-sm border-0 bg-white h-100">
-                                    <div class="card-body">
-                                        <h6 class="fw-bold text-success mb-3"><i class="fas fa-calendar-alt me-1"></i>Resumen Mensual</h6>
-                                        <div class="small text-secondary">
-                                            <div class="d-flex justify-content-between mb-1"><span>Ventas Brutas:</span> <strong id="rep-mensual-total" class="text-success">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between mb-1"><span>Gastos:</span> <strong id="rep-mensual-gastos" class="text-danger">-$U 0.00</strong></div>
-                                            <hr class="my-1">
-                                            <div class="d-flex justify-content-between mb-1"><span>Efectivo:</span> <strong id="rep-mensual-efectivo">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between mb-1"><span>Tarjeta:</span> <strong id="rep-mensual-tarjeta">$U 0.00</strong></div>
-                                            <div class="d-flex justify-content-between"><span>Transferencias:</span> <strong id="rep-mensual-transf">$U 0.00</strong></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                       
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= MODAL COMIENZO DE TURNO Y CAJERO ================= -->
+    <div class="modal fade" id="modalTurno" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-dark text-white py-2">
+                    <h5 class="modal-title fs-6 fw-bold"><i class="fas fa-play-circle me-2"></i>Comenzar Turno y Selección de Cajero</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Seleccione Horario de Turno</label>
+                        <select id="select-horario-turno" class="form-select">
+                            <option value="09:00 a 13:00">Turno Mañana (09:00 a 13:00)</option>
+                            <option value="17:00 a 21:00">Turno Tarde (17:00 a 21:00)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nombre del Cajero</label>
+                        <input type="text" id="input-cajero-nombre" class="form-control" placeholder="Ingrese nombre del cajero">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">PIN del Cajero</label>
+                        <input type="password" id="input-cajero-pin" class="form-control" placeholder="PIN de acceso" maxlength="6">
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-success py-2 fw-bold" onclick="iniciarTurnoCajero()">
+                            <i class="fas fa-check-circle me-1"></i>Comenzar Turno
+                        </button>
+                        <button type="button" class="btn btn-primary py-2 fw-bold small" onclick="registrarNuevoCajero()">
+                            <i class="fas fa-user-plus me-1"></i>Registrar Nuevo Cajero
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Inicializar base de datos de artículos por defecto si está vacía
+            let articulosGuardados = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+            for (let i = 1; i <= 200; i++) {
+                let existe = articulosGuardados.some(art => art.codigo == i);
+                if (!existe) {
+                    articulosGuardados.push({
+                        codigo: i,
+                        nombre: `Artículo Carnicería ${i}`,
+                        categoria: "Carniceria",
+                        precio: (100.00).toFixed(2)
+                    });
+                }
+            }
+            localStorage.setItem("minipos_articulos", JSON.stringify(articulosGuardados));
+
+            // Verificar si ya existe un administrador guardado en la base de datos local
+            let adminGuardado = localStorage.getItem("minipos_admin");
+            if (adminGuardado) {
+                document.getElementById("auth-subtitle").innerText = "Ingrese su usuario y PIN de Administrador para acceder.";
+            } else {
+                document.getElementById("auth-subtitle").innerText = "Configure por primera vez su cuenta de Administrador.";
+            }
+        });
+
+        function procesarAutenticacionAdmin() {
+            let usuarioInput = document.getElementById("auth-user");
+            let pinInput = document.getElementById("auth-pin");
+            
+            let usuario = usuarioInput ? usuarioInput.value.trim() : "";
+            let pin = pinInput ? pinInput.value.trim() : "";
+
+            if (!usuario || !pin) {
+                alert("Por favor ingrese el nombre de usuario y el PIN.");
+                return;
+            }
+
+            let adminRegistrado = JSON.parse(localStorage.getItem("minipos_admin"));
+            if (!adminRegistrado) {
+                // Guardar administrador en la base de datos local
+                localStorage.setItem("minipos_admin", JSON.stringify({ usuario, pin }));
+            } else {
+                // Validar credenciales si ya existe
+                if (adminRegistrado.usuario.toLowerCase() !== usuario.toLowerCase() || adminRegistrado.pin !== pin) {
+                    alert("Usuario o PIN de Administrador incorrecto.");
+                    return;
+                }
+            }
+
+            // Ocultar pantalla push de autenticación y mostrar la aplicación completa
+            document.getElementById("auth-overlay").style.display = "none";
+            document.getElementById("app-main").style.display = "block";
+            
+            renderCatalogoRapido();
+            renderCart();
+        }
+
+        function abrirModalTurno() {
+            let modal = new bootstrap.Modal(document.getElementById("modalTurno"));
+            modal.show();
+        }
+
+        function iniciarTurnoCajero() {
+            let horario = document.getElementById("select-horario-turno").value;
+            let nombre = document.getElementById("input-cajero-nombre").value.trim();
+            let pin = document.getElementById("input-cajero-pin").value.trim();
+
+            if (!nombre || !pin) {
+                alert("Por favor complete el nombre y el PIN del cajero.");
+                return;
+            }
+
+            let cajeros = JSON.parse(localStorage.getItem("minipos_cajeros")) || [];
+            let cajeroEncontrado = cajeros.find(c => c.nombre.toLowerCase() === nombre.toLowerCase() && c.pin === pin);
+
+            if (!cajeroEncontrado) {
+                alert("Cajero no registrado o PIN incorrecto. Utilice el botón azul para registrarlo.");
+                return;
+            }
+
+            document.getElementById("label-cajero-actual").innerText = `Cajero: ${cajeroEncontrado.nombre}`;
+            document.getElementById("badge-turno").innerHTML = `<i class="fas fa-check-circle me-1"></i>Turno Activo (${horario})`;
+            document.getElementById("badge-turno").className = "btn btn-success btn-sm fw-bold text-white py-1 px-2 shadow-sm";
+
+            let modalEl = document.getElementById("modalTurno");
+            let modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
+            alert(`Turno de ${horario} iniciado correctamente para ${cajeroEncontrado.nombre}.`);
+        }
+
+        function registrarNuevoCajero() {
+            let nombre = document.getElementById("input-cajero-nombre").value.trim();
+            let pin = document.getElementById("input-cajero-pin").value.trim();
+
+            if (!nombre || !pin) {
+                alert("Ingrese nombre y PIN para registrar al nuevo cajero.");
+                return;
+            }
+
+            let cajeros = JSON.parse(localStorage.getItem("minipos_cajeros")) || [];
+            let existe = cajeros.some(c => c.nombre.toLowerCase() === nombre.toLowerCase());
+
+            if (existe) {
+                alert("Este cajero ya está registrado.");
+                return;
+            }
+
+            cajeros.push({ nombre, pin });
+            localStorage.setItem("minipos_cajeros", JSON.stringify(cajeros));
+            alert(`¡Cajero ${nombre} registrado con éxito! Ya puede iniciar turno.`);
+        }
+
+        function manejarEnterEscanner(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                procesarCodigoBarras();
+            }
+        }
+
+        function procesarCodigoBarras() {
+            let input = document.getElementById("input-buscar-articulo");
+            let codigoLeido = input.value.trim();
+            if (!codigoLeido) return;
+
+            let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+            let articuloEncontrado = null;
+            let precioPersonalizado = null;
+
+            if (codigoLeido.length === 13 && codigoLeido.startsWith("2")) {
+                let codigoArticulo = parseInt(codigoLeido.substring(1, 6)).toString();
+                let valorEtiqueta = parseInt(codigoLeido.substring(6, 12)) / 100;
+                articuloEncontrado = articulos.find(art => art.codigo.toString() === codigoArticulo);
+                if (articuloEncontrado) precioPersonalizado = valorEtiqueta;
+            }
+
+            if (!articuloEncontrado) {
+                articuloEncontrado = articulos.find(art => art.codigo.toString() === codigoLeido);
+            }
+
+            if (!articuloEncontrado) {
+                articuloEncontrado = articulos.find(art => art.nombre.toLowerCase().includes(codigoLeido.toLowerCase()));
+            }
+
+            if (articuloEncontrado) {
+                agregarAlCarrito(articuloEncontrado.codigo, precioPersonalizado);
+                input.value = "";
+                input.focus();
+            } else {
+                alert("Artículo no encontrado en la base de datos.");
+            }
+        }
+
+        function agregarAlCarrito(codigo, precioOverride = null) {
+            let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+            let articulo = articulos.find(art => art.codigo == codigo);
+            if (!articulo) return;
+
+            let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
+            let precioFinal = precioOverride !== null ? precioOverride : parseFloat(articulo.precio);
+            let index = carrito.findIndex(item => item.codigo == codigo && item.precioCustom === precioOverride);
+            
+            if (index > -1 && precioOverride === null) {
+                carrito[index].cantidad += 1;
+            } else {
+                carrito.push({
+                    codigo: articulo.codigo,
+                    nombre: articulo.nombre,
+                    categoria: articulo.categoria || "Carniceria",
+                    precio: precioFinal,
+                    precioCustom: precioOverride,
+                    cantidad: 1
+                });
+            }
+
+            localStorage.setItem("minipos_carrito", JSON.stringify(carrito));
+            renderCart();
+        }
+
+        function renderCart() {
+            let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
+            let contenedor = document.getElementById("cart-items");
+            if (!contenedor) return;
+            contenedor.innerHTML = "";
+
+            if (carrito.length === 0) {
+                contenedor.innerHTML = `<li class="list-group-item text-center text-muted py-4 small">El carrito está vacío</li>`;
+                document.getElementById("cart-subtotal").innerText = "$U 0.00";
+                document.getElementById("cart-descuento-monto").innerText = "-$U 0.00";
+                document.g
