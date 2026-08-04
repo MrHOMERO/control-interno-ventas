@@ -3,9 +3,9 @@ let turnoActivo = "Ninguno";
 let metodoPagoActivo = "Efectivo";
 let chartInstancia = null;
 const ADMIN_PASSWORD = "6272#$";
+let modoEdicion = false; // false = agregar nuevo, true = editar existente
 
 document.addEventListener("DOMContentLoaded", function() {
-    // Generar base de artículos inicial si no existe en localStorage
     if (!localStorage.getItem("minipos_articulos")) {
         let articulosBase = [];
         
@@ -277,7 +277,6 @@ function renderCart() {
         subtotal += totalItem;
 
         let descuentoItem = 0;
-        // Solo aplica descuento real (/1.1) si es Carnes y pago es Efectivo o Transferencia
         if (item.categoria === "Carnes" && (metodoPagoActivo === "Efectivo" || metodoPagoActivo === "Transferencia")) {
             descuentoItem = totalItem - (totalItem / 1.1);
             descuentoTotal += descuentoItem;
@@ -337,9 +336,7 @@ function cobrarVenta() {
     renderResumenTurno();
     renderGrafica();
     alert("¡Venta cobrada con éxito!");
-}
-
-function renderCatalogoRapido() {
+    }function renderCatalogoRapido() {
     let filtro = document.getElementById("input-buscar-articulo") ? document.getElementById("input-buscar-articulo").value.toLowerCase() : "";
     let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
     let grid = document.getElementById("product-grid");
@@ -390,7 +387,7 @@ function renderTablaAdminProductos() {
     let filtrados = articulos.filter(art => art.codigo.toString().includes(filtro) || art.nombre.toLowerCase().includes(filtro) || art.categoria.toLowerCase().includes(filtro));
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-muted py-3">No hay productos encontrados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-muted py-3">No hay artículos encontrados.</td></tr>`;
         return;
     }
 
@@ -400,40 +397,41 @@ function renderTablaAdminProductos() {
                 <td class="fw-bold">${art.codigo}</td>
                 <td>${art.nombre}</td>
                 <td><span class="badge bg-secondary">${art.categoria}</span></td>
-                <td><input type="number" step="0.01" class="form-control form-control-sm" value="${art.precio}" id="precio-input-${art.codigo}" style="width: 100px; display:inline-block;"></td>
+                <td>$U ${parseFloat(art.precio).toFixed(2)}</td>
                 <td class="text-end">
-                    <button class="btn btn-primary btn-sm py-0 px-2" onclick="actualizarPrecioAdmin(${art.codigo})"><i class="fas fa-save me-1"></i>Guardar</button>
+                    <button class="btn btn-warning btn-sm py-0 px-2 me-1 text-dark fw-bold" onclick="abrirModalEditarProducto(${art.codigo})"><i class="fas fa-edit"></i> Modificar</button>
                     <button class="btn btn-danger btn-sm py-0 px-2" onclick="eliminarProductoAdmin(${art.codigo})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>`;
     });
 }
 
-function actualizarPrecioAdmin(codigo) {
-    let nuevoPrecioInput = document.getElementById(`precio-input-${codigo}`);
-    let nuevoPrecio = parseFloat(nuevoPrecioInput.value);
-
-    if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
-        return alert("Ingrese un precio válido.");
-    }
-
-    let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
-    let index = articulos.findIndex(a => a.codigo == codigo);
-    if (index > -1) {
-        articulos[index].precio = nuevoPrecio.toFixed(2);
-        localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
-        registrarAccion(`Modificó precio del producto código ${codigo} a $U ${nuevoPrecio.toFixed(2)}`);
-        alert("Precio actualizado correctamente.");
-        renderTablaAdminProductos();
-        renderCatalogoRapido();
-    }
-}
-
 function abrirModalNuevoProducto() {
+    modoEdicion = false;
+    document.getElementById("titulo-modal-producto").innerText = "Agregar Artículo";
     document.getElementById("prod-codigo").value = "";
+    document.getElementById("prod-codigo").disabled = false;
     document.getElementById("prod-nombre").value = "";
     document.getElementById("prod-precio").value = "";
-    document.getElementById("prod-categoria").value = "Almacén";
+    document.getElementById("prod-categoria").value = "Carnes";
+    
+    let modal = new bootstrap.Modal(document.getElementById("modalProducto"));
+    modal.show();
+}
+
+function abrirModalEditarProducto(codigo) {
+    let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+    let art = articulos.find(a => a.codigo == codigo);
+    if (!art) return;
+
+    modoEdicion = true;
+    document.getElementById("titulo-modal-producto").innerText = "Modificar Artículo";
+    document.getElementById("prod-codigo").value = art.codigo;
+    document.getElementById("prod-codigo").disabled = true; // El código no se altera para mantener integridad
+    document.getElementById("prod-nombre").value = art.nombre;
+    document.getElementById("prod-precio").value = art.precio;
+    document.getElementById("prod-categoria").value = art.categoria;
+
     let modal = new bootstrap.Modal(document.getElementById("modalProducto"));
     modal.show();
 }
@@ -449,32 +447,102 @@ function guardarProductoAdmin() {
     }
 
     let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
-    if (articulos.some(a => a.codigo === codigo)) {
-        return alert("Ya existe un producto con ese código.");
+
+    if (modoEdicion) {
+        let index = articulos.findIndex(a => a.codigo == codigo);
+        if (index > -1) {
+            articulos[index].nombre = nombre;
+            articulos[index].categoria = categoria;
+            articulos[index].precio = precio.toFixed(2);
+            localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
+            registrarAccion(`Modificó el artículo código ${codigo} (${nombre} - ${categoria} - $U ${precio.toFixed(2)})`);
+            alert("Artículo modificado con éxito.");
+        }
+    } else {
+        if (articulos.some(a => a.codigo === codigo)) {
+            return alert("Ya existe un artículo con ese código.");
+        }
+        articulos.push({
+            codigo: codigo,
+            nombre: nombre,
+            categoria: categoria,
+            precio: precio.toFixed(2)
+        });
+        localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
+        registrarAccion(`Agregó nuevo artículo: ${nombre} (${categoria}) - Cód: ${codigo}`);
+        alert("Artículo agregado con éxito.");
     }
-
-    articulos.push({
-        codigo: codigo,
-        nombre: nombre,
-        categoria: categoria,
-        precio: precio.toFixed(2)
-    });
-
-    localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
-    registrarAccion(`Creó nuevo producto: ${nombre} (${categoria}) - Cód: ${codigo}`);
 
     let modalEl = document.getElementById("modalProducto");
     let modal = bootstrap.Modal.getInstance(modalEl);
     modal.hide();
 
-    alert("Producto creado con éxito.");
     renderTablaAdminProductos();
     renderCatalogoRapido();
 }
 
 function eliminarProductoAdmin(codigo) {
-    if (confirm(`¿Está seguro de eliminar el producto código ${codigo}?`)) {
+    if (confirm(`¿Está seguro de eliminar el artículo código ${codigo}?`)) {
         let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
         articulos = articulos.filter(a => a.codigo != codigo);
         localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
-        registrarAccion(`Eliminó el producto có
+        registrarAccion(`Eliminó el artículo código ${codigo}`);
+        renderTablaAdminProductos();
+        renderCatalogoRapido();
+    }
+}
+
+function renderLogs() {
+    let logs = JSON.parse(localStorage.getItem("minipos_logs")) || [];
+    let tabla = document.getElementById("tabla-logs");
+    if(!tabla) return;
+    tabla.innerHTML = "";
+    
+    if(logs.length === 0) {
+        tabla.innerHTML = `<tr><td colspan="3" class="text-muted py-3">No hay actividad registrada.</td></tr>`;
+        return;
+    }
+
+    logs.slice().reverse().forEach(log => {
+        tabla.innerHTML += `
+            <tr>
+                <td class="text-muted">${log.fecha}</td>
+                <td class="fw-bold">${log.cajero}</td>
+                <td class="text-start">${log.detalle}</td>
+            </tr>`;
+    });
+}
+
+function renderGrafica() {
+    let ventas = JSON.parse(localStorage.getItem("minipos_ventas")) || [];
+    let totales = { "Efectivo": 0, "Transferencia": 0, "Debito": 0 };
+    
+    ventas.forEach(v => {
+        if(totales[v.pago] !== undefined) totales[v.pago] += v.total;
+    });
+
+    const ctx = document.getElementById('salesChart');
+    if(!ctx) return;
+
+    if(chartInstancia) chartInstancia.destroy();
+
+    chartInstancia = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Efectivo', 'Transferencia', 'Débito'],
+            datasets: [{
+                data: [totales.Efectivo, totales.Transferencia, totales.Debito],
+                backgroundColor: ['#198754', '#0d6efd', '#0dcaf0']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function switchTab(tab) {
+    if (tab === 'pos') {
+        document.getElementById('view-pos').style.display = 'flex';
+        document.getElementById('view-dashboard').style.display = 'none';
+        renderCatalogoRapido();
+    }
+                           }
