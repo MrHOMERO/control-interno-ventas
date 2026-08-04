@@ -1,0 +1,13 @@
+/* Estilos adicionales personalizados para MiniPOS Cloud Pro */
+body {
+    background-color: #f8f9fa;
+}
+
+.table-responsive::-webkit-scrollbar {
+    width: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
