@@ -1,13 +1,95 @@
-/* Estilos adicionales personalizados para MiniPOS Cloud Pro */
-body {
-    background-color: #f8f9fa;
+/* ================================================= */
+/* DISEÑO MODERNO Y LIMPIO PARA CUADROS DE DIÁLOGO (MODALES) */
+/* ================================================= */
+
+/* Fondo oscuro translúcido con efecto blur elegante */
+.modal-backdrop.show {
+    background-color: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(4px);
 }
 
-.table-responsive::-webkit-scrollbar {
-    width: 6px;
+/* Contenedor principal del modal: sin grises por defecto, esquinas redondeadas y sombra fina */
+.modal-content {
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    overflow: hidden;
+    background-color: #ffffff !important;
 }
 
-.table-responsive::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
+/* Cabecera del cuadro de diálogo con diseño de color profesional */
+.modal-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    color: #ffffff !important;
+    border-bottom: none !important;
+    padding: 1.25rem 1.5rem !important;
+}
+
+.modal-header .modal-title {
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+    font-size: 1.15rem;
+}
+
+/* Botón de cierre (X) adaptado para verse perfecto en la cabecera oscura */
+.modal-header .btn-close {
+    filter: brightness(0) invert(1) !important;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+.modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+/* Cuerpo del diálogo limpio con fondo sutil y tipografía legible */
+.modal-body {
+    padding: 1.75rem 1.5rem !important;
+    background-color: #f8fafc !important;
+    color: #334155 !important;
+}
+
+/* Pie de página del diálogo limpio y ordenado */
+.modal-footer {
+    background-color: #f8fafc !important;
+    border-top: 1px solid #e2e8f0 !important;
+    padding: 1rem 1.5rem !important;
+}
+
+/* Entradas de texto (inputs) y selectores modernos dentro de los modales */
+.modal-body .form-control, 
+.modal-body .form-select {
+    border-radius: 10px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    padding: 0.65rem 1rem !important;
+    font-size: 0.95rem;
+    transition: all 0.2s ease-in-out;
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+}
+
+.modal-body .form-control:focus, 
+.modal-body .form-select:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Etiquetas (labels) de los formularios más limpias */
+.modal-body .form-label {
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.875rem;
+    margin-bottom: 0.4rem;
+}
+
+/* Botones dentro de los diálogos con estilo refinado */
+.modal .btn {
+    border-radius: 10px !important;
+    padding: 0.55rem 1.25rem !important;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.modal .btn:active {
+    transform: scale(0.98);
 }
