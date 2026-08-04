@@ -38,9 +38,9 @@
                 <div class="col-lg-7 mb-4">
                     <div class="card shadow-sm border-0 mb-3">
                         <div class="card-body p-3 bg-white rounded">
-                            <label class="form-label small fw-bold text-muted"><i class="fas fa-barcode me-1"></i>Escáner / Búsqueda de Artículos (Carnes, Almacén, Bebidas)</label>
+                            <label class="form-label small fw-bold text-muted"><i class="fas fa-barcode me-1"></i>Escáner / Búsqueda de Artículos</label>
                             <div class="input-group">
-                                <input type="text" id="input-buscar-articulo" class="form-control" placeholder="Escriba o escanee (ej. Corte, Almacén, Bebida)..." oninput="filtrarCatalogoRapido()" onkeydown="manejarEnterEscanner(event)">
+                                <input type="text" id="input-buscar-articulo" class="form-control" placeholder="Escriba o escanee código o nombre..." oninput="filtrarCatalogoRapido()" onkeydown="manejarEnterEscanner(event)">
                                 <button type="button" class="btn btn-primary fw-bold px-3" onclick="filtrarCatalogoRapido()"><i class="fas fa-search"></i></button>
                             </div>
                         </div>
@@ -71,7 +71,6 @@
                                 <span><i class="fas fa-credit-card me-1"></i>Débito:</span>
                                 <span id="total-debito-ui">$U 0.00</span>
                             </div>
-                            <!-- Control en amarillo del dinero descontado en el turno -->
                             <div class="d-flex justify-content-between mb-2 text-dark bg-warning bg-opacity-25 px-2 py-1 rounded">
                                 <span><i class="fas fa-tags me-1"></i>Total Descuentos Turno:</span>
                                 <span id="total-descuentos-turno-ui" class="text-dark">$U 0.00</span>
@@ -166,16 +165,16 @@
                     </div>
                 </div>
 
-                <!-- Sección de Gestión de Precios y Artículos -->
+                <!-- Sección de Gestión de Artículos -->
                 <div class="col-12 mb-4">
                     <div class="card shadow-sm border-0">
                         <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
-                            <span class="fw-bold small"><i class="fas fa-boxes me-2"></i>Gestión de Precios, Productos y Categorías</span>
-                            <button class="btn btn-success btn-sm py-0 px-2 fw-bold" onclick="abrirModalNuevoProducto()"><i class="fas fa-plus me-1"></i>Nuevo Producto</button>
+                            <span class="fw-bold small"><i class="fas fa-boxes me-2"></i>Gestión de Artículos y Secciones</span>
+                            <button class="btn btn-success btn-sm py-0 px-2 fw-bold" onclick="abrirModalNuevoProducto()"><i class="fas fa-plus me-1"></i>Agregar Artículo</button>
                         </div>
                         <div class="card-body p-3">
                             <div class="mb-2">
-                                <input type="text" id="input-admin-buscar-prod" class="form-control form-control-sm" placeholder="Buscar por código, nombre o categoría..." oninput="renderTablaAdminProductos()">
+                                <input type="text" id="input-admin-buscar-prod" class="form-control form-control-sm" placeholder="Buscar por código, nombre o sección..." oninput="renderTablaAdminProductos()">
                             </div>
                             <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                                 <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size: 0.8rem;">
@@ -183,7 +182,7 @@
                                         <tr>
                                             <th>Código</th>
                                             <th>Nombre</th>
-                                            <th>Categoría</th>
+                                            <th>Sección</th>
                                             <th>Precio ($U)</th>
                                             <th class="text-end">Acciones</th>
                                         </tr>
@@ -254,12 +253,12 @@
         </div>
     </div>
 
-    <!-- ================= MODAL NUEVO / EDITAR PRODUCTO (ADMIN) ================= -->
+    <!-- ================= MODAL AGREGAR / MODIFICAR ARTÍCULO ================= -->
     <div class="modal fade" id="modalProducto" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-dark text-white py-2">
-                    <h5 class="modal-title fs-6 fw-bold" id="titulo-modal-producto">Nuevo Producto</h5>
+                    <h5 class="modal-title fs-6 fw-bold" id="titulo-modal-producto">Agregar Artículo</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
@@ -269,12 +268,12 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Nombre del Artículo</label>
-                        <input type="text" id="prod-nombre" class="form-control" placeholder="Ej. Producto Almacén o Bebida">
+                        <input type="text" id="prod-nombre" class="form-control" placeholder="Ej. Nuevo artículo">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Categoría</label>
+                        <label class="form-label small fw-bold">Sección / Categoría</label>
                         <select id="prod-categoria" class="form-select">
-                            <option value="Carnes">Carnes (Aplica Descuento Real /1.1)</option>
+                            <option value="Carnes">Carnes (Aplica Descuento Real)</option>
                             <option value="Almacén">Almacén (Sin Descuento)</option>
                             <option value="Bebidas">Bebidas (Sin Descuento)</option>
                         </select>
@@ -284,7 +283,7 @@
                         <input type="number" step="0.01" id="prod-precio" class="form-control" placeholder="0.00">
                     </div>
                     <div class="d-grid">
-                        <button type="button" class="btn btn-success py-2 fw-bold" onclick="guardarProductoAdmin()">Guardar Producto</button>
+                        <button type="button" class="btn btn-success py-2 fw-bold" onclick="guardarProductoAdmin()">Guardar Cambios</button>
                     </div>
                 </div>
             </div>
