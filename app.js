@@ -2,18 +2,45 @@ let cajeroActivo = "Ninguno";
 let turnoActivo = "Ninguno";
 let metodoPagoActivo = "Efectivo";
 let chartInstancia = null;
+const ADMIN_PASSWORD = "6272#$";
 
 document.addEventListener("DOMContentLoaded", function() {
-    let articulosCarnes = [];
-    for (let i = 1; i <= 150; i++) {
-        articulosCarnes.push({
-            codigo: i, 
-            nombre: `Corte de Carnicería Especial ${i}`, 
-            categoria: "Carnes", 
-            precio: (250.00 + (i * 1.5)).toFixed(2)
-        });
+    // Generar base de artículos inicial si no existe en localStorage
+    if (!localStorage.getItem("minipos_articulos")) {
+        let articulosBase = [];
+        
+        // 1 a 150: Carnes (Con descuento real)
+        for (let i = 1; i <= 150; i++) {
+            articulosBase.push({
+                codigo: i, 
+                nombre: `Corte de Carnicería Especial ${i}`, 
+                categoria: "Carnes", 
+                precio: (250.00 + (i * 1.5)).toFixed(2)
+            });
+        }
+        
+        // 151 a 200: Almacén (Sin descuento)
+        for (let i = 151; i <= 200; i++) {
+            articulosBase.push({
+                codigo: i, 
+                nombre: `Artículo Almacén ${i - 150}`, 
+                categoria: "Almacén", 
+                precio: (100.00 + (i * 1.2)).toFixed(2)
+            });
+        }
+
+        // 201 a 250: Bebidas (Sin descuento)
+        for (let i = 201; i <= 250; i++) {
+            articulosBase.push({
+                codigo: i, 
+                nombre: `Bebida Refrescante ${i - 200}`, 
+                categoria: "Bebidas", 
+                precio: (80.00 + (i * 1.0)).toFixed(2)
+            });
+        }
+
+        localStorage.setItem("minipos_articulos", JSON.stringify(articulosBase));
     }
-    localStorage.setItem("minipos_articulos", JSON.stringify(articulosCarnes));
 
     renderCatalogoRapido();
     renderCart();
@@ -119,6 +146,43 @@ function cerrarCaja() {
     }
 }
 
+function verAdmin() {
+    let modal = new bootstrap.Modal(document.getElementById("modalAdmin"));
+    document.getElementById("input-admin-pass").value = "";
+    modal.show();
+    setTimeout(() => {
+        document.getElementById("input-admin-pass").focus();
+    }, 300);
+}
+
+function verificarAccesoAdmin() {
+    let pass = document.getElementById("input-admin-pass").value.trim();
+
+    if (pass === ADMIN_PASSWORD) {
+        let modalEl = document.getElementById("modalAdmin");
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        document.getElementById('view-pos').style.display = 'none';
+        document.getElementById('view-dashboard').style.display = 'flex';
+        renderLogs();
+        renderGrafica();
+        renderTablaAdminProductos();
+        registrarAccion("Accedió al Panel de Administración");
+    } else {
+        alert("Contraseña de administrador incorrecta.");
+        document.getElementById("input-admin-pass").value = "";
+        document.getElementById("input-admin-pass").focus();
+    }
+}
+
+function manejarEnterAdmin(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        verificarAccesoAdmin();
+    }
+}
+
 function actualizarMetodoPago() {
     let radios = document.getElementsByName('btnradio_pago');
     for(let radio of radios) {
@@ -130,10 +194,10 @@ function actualizarMetodoPago() {
     
     let info = document.getElementById("info-descuento");
     if(metodoPagoActivo === "Debito") {
-        info.innerText = "Pago con Débito: NO aplica descuento en Carnes.";
+        info.innerText = "Pago con Débito: NO aplica descuento en ninguna categoría.";
         info.className = "text-danger d-block mt-1 fw-bold";
     } else {
-        info.innerText = "Aplica descuento real en Carnes (Efectivo/Transferencia).";
+        info.innerText = "Aplica descuento real solo en Carnes (Efectivo/Transferencia).";
         info.className = "text-success d-block mt-1 fw-bold";
     }
     
@@ -213,15 +277,18 @@ function renderCart() {
         subtotal += totalItem;
 
         let descuentoItem = 0;
+        // Solo aplica descuento real (/1.1) si es Carnes y pago es Efectivo o Transferencia
         if (item.categoria === "Carnes" && (metodoPagoActivo === "Efectivo" || metodoPagoActivo === "Transferencia")) {
             descuentoItem = totalItem - (totalItem / 1.1);
             descuentoTotal += descuentoItem;
         }
 
+        let badgeCatClass = item.categoria === "Carnes" ? "bg-success" : (item.categoria === "Almacén" ? "bg-primary" : "bg-info text-dark");
+
         contenedor.innerHTML += `
             <li class="list-group-item d-flex justify-content-between align-items-center py-2 small">
                 <div>
-                    <strong>${item.nombre}</strong> <span class="badge bg-success" style="font-size:0.65rem;">${item.categoria}</span><br>
+                    <strong>${item.nombre}</strong> <span class="badge ${badgeCatClass}" style="font-size:0.65rem;">${item.categoria}</span><br>
                     <span class="text-muted">${item.cantidad} x $U ${item.precio.toFixed(2)}</span>
                 </div>
                 <div>
@@ -279,10 +346,10 @@ function renderCatalogoRapido() {
     if (!grid) return;
     grid.innerHTML = "";
 
-    let filtrados = articulos.filter(art => art.codigo.toString().includes(filtro) || art.nombre.toLowerCase().includes(filtro));
+    let filtrados = articulos.filter(art => art.codigo.toString().includes(filtro) || art.nombre.toLowerCase().includes(filtro) || art.categoria.toLowerCase().includes(filtro));
 
     if (filtrados.length === 0) {
-        grid.innerHTML = `<div class="p-3 text-center text-muted small">No se encontraron artículos de carnes.</div>`;
+        grid.innerHTML = `<div class="p-3 text-center text-muted small">No se encontraron artículos.</div>`;
         return;
     }
 
@@ -291,13 +358,16 @@ function renderCatalogoRapido() {
         let claseColorCard = esCoincidenciaBuscador ? "bg-secondary text-white" : "bg-white text-dark";
         let estiloExtra = esCoincidenciaBuscador ? "border: 2px solid #495057;" : "";
 
+        let badgeCatClass = art.categoria === "Carnes" ? "bg-success" : (art.categoria === "Almacén" ? "bg-primary" : "bg-info text-dark");
+        let textoDescuento = art.categoria === "Carnes" ? "(Desc. Real)" : "(Sin Desc.)";
+
         grid.innerHTML += `
             <div class="col">
                 <div class="card shadow-sm ${claseColorCard}" style="cursor: pointer; ${estiloExtra}" onclick="agregarAlCarrito(${art.codigo})">
                     <div class="card-body py-2 d-flex justify-content-between align-items-center">
                         <div>
                             <span class="badge ${esCoincidenciaBuscador ? 'bg-dark text-light' : 'bg-secondary'}">Cód: ${art.codigo}</span>
-                            <span class="badge bg-success" style="font-size:0.65rem;">${art.categoria} (Desc. Real)</span>
+                            <span class="badge ${badgeCatClass}" style="font-size:0.65rem;">${art.categoria} ${textoDescuento}</span>
                             <h6 class="mb-0 fw-bold mt-1 small">${art.nombre}</h6>
                         </div>
                         <span class="fw-bold ${esCoincidenciaBuscador ? 'text-light' : 'text-success'}">$U ${parseFloat(art.precio).toFixed(2)}</span>
@@ -309,64 +379,102 @@ function renderCatalogoRapido() {
 
 function filtrarCatalogoRapido() { renderCatalogoRapido(); }
 
-function renderLogs() {
-    let logs = JSON.parse(localStorage.getItem("minipos_logs")) || [];
-    let tabla = document.getElementById("tabla-logs");
-    if(!tabla) return;
-    tabla.innerHTML = "";
-    
-    if(logs.length === 0) {
-        tabla.innerHTML = `<tr><td colspan="3" class="text-muted py-3">No hay actividad registrada.</td></tr>`;
+// ================= GESTIÓN ADMIN PRODUCTOS =================
+function renderTablaAdminProductos() {
+    let filtro = document.getElementById("input-admin-buscar-prod").value.toLowerCase();
+    let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+    let tbody = document.getElementById("tabla-admin-productos");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    let filtrados = articulos.filter(art => art.codigo.toString().includes(filtro) || art.nombre.toLowerCase().includes(filtro) || art.categoria.toLowerCase().includes(filtro));
+
+    if (filtrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-muted py-3">No hay productos encontrados.</td></tr>`;
         return;
     }
 
-    logs.slice().reverse().forEach(log => {
-        tabla.innerHTML += `
+    filtrados.forEach(art => {
+        tbody.innerHTML += `
             <tr>
-                <td class="text-muted">${log.fecha}</td>
-                <td class="fw-bold">${log.cajero}</td>
-                <td class="text-start">${log.detalle}</td>
+                <td class="fw-bold">${art.codigo}</td>
+                <td>${art.nombre}</td>
+                <td><span class="badge bg-secondary">${art.categoria}</span></td>
+                <td><input type="number" step="0.01" class="form-control form-control-sm" value="${art.precio}" id="precio-input-${art.codigo}" style="width: 100px; display:inline-block;"></td>
+                <td class="text-end">
+                    <button class="btn btn-primary btn-sm py-0 px-2" onclick="actualizarPrecioAdmin(${art.codigo})"><i class="fas fa-save me-1"></i>Guardar</button>
+                    <button class="btn btn-danger btn-sm py-0 px-2" onclick="eliminarProductoAdmin(${art.codigo})"><i class="fas fa-trash"></i></button>
+                </td>
             </tr>`;
     });
 }
 
-function renderGrafica() {
-    let ventas = JSON.parse(localStorage.getItem("minipos_ventas")) || [];
-    let totales = { "Efectivo": 0, "Transferencia": 0, "Debito": 0 };
-    
-    ventas.forEach(v => {
-        if(totales[v.pago] !== undefined) totales[v.pago] += v.total;
-    });
+function actualizarPrecioAdmin(codigo) {
+    let nuevoPrecioInput = document.getElementById(`precio-input-${codigo}`);
+    let nuevoPrecio = parseFloat(nuevoPrecioInput.value);
 
-    const ctx = document.getElementById('salesChart');
-    if(!ctx) return;
+    if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
+        return alert("Ingrese un precio válido.");
+    }
 
-    if(chartInstancia) chartInstancia.destroy();
-
-    chartInstancia = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Efectivo', 'Transferencia', 'Débito'],
-            datasets: [{
-                data: [totales.Efectivo, totales.Transferencia, totales.Debito],
-                backgroundColor: ['#198754', '#0d6efd', '#0dcaf0']
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-}
-
-function switchTab(tab) {
-    if (tab === 'pos') {
-        document.getElementById('view-pos').style.display = 'flex';
-        document.getElementById('view-dashboard').style.display = 'none';
+    let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+    let index = articulos.findIndex(a => a.codigo == codigo);
+    if (index > -1) {
+        articulos[index].precio = nuevoPrecio.toFixed(2);
+        localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
+        registrarAccion(`Modificó precio del producto código ${codigo} a $U ${nuevoPrecio.toFixed(2)}`);
+        alert("Precio actualizado correctamente.");
+        renderTablaAdminProductos();
         renderCatalogoRapido();
     }
 }
 
-function verAdmin() {
-    document.getElementById('view-pos').style.display = 'none';
-    document.getElementById('view-dashboard').style.display = 'flex';
-    renderLogs();
-    renderGrafica();
+function abrirModalNuevoProducto() {
+    document.getElementById("prod-codigo").value = "";
+    document.getElementById("prod-nombre").value = "";
+    document.getElementById("prod-precio").value = "";
+    document.getElementById("prod-categoria").value = "Almacén";
+    let modal = new bootstrap.Modal(document.getElementById("modalProducto"));
+    modal.show();
 }
+
+function guardarProductoAdmin() {
+    let codigo = parseInt(document.getElementById("prod-codigo").value);
+    let nombre = document.getElementById("prod-nombre").value.trim();
+    let categoria = document.getElementById("prod-categoria").value;
+    let precio = parseFloat(document.getElementById("prod-precio").value);
+
+    if (!codigo || !nombre || isNaN(precio)) {
+        return alert("Complete todos los campos correctamente.");
+    }
+
+    let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+    if (articulos.some(a => a.codigo === codigo)) {
+        return alert("Ya existe un producto con ese código.");
+    }
+
+    articulos.push({
+        codigo: codigo,
+        nombre: nombre,
+        categoria: categoria,
+        precio: precio.toFixed(2)
+    });
+
+    localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
+    registrarAccion(`Creó nuevo producto: ${nombre} (${categoria}) - Cód: ${codigo}`);
+
+    let modalEl = document.getElementById("modalProducto");
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    modal.hide();
+
+    alert("Producto creado con éxito.");
+    renderTablaAdminProductos();
+    renderCatalogoRapido();
+}
+
+function eliminarProductoAdmin(codigo) {
+    if (confirm(`¿Está seguro de eliminar el producto código ${codigo}?`)) {
+        let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+        articulos = articulos.filter(a => a.codigo != codigo);
+        localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
+        registrarAccion(`Eliminó el producto có
