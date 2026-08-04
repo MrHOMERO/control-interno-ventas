@@ -8,49 +8,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        #auth-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.75);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-    </style>
 </head>
 <body class="bg-light">
 
-    <!-- ================= PANTALLA PUSH DE ADMINISTRADOR ================= -->
-    <div id="auth-overlay">
-        <div class="card shadow border-0 p-4 m-3" style="width: 100%; max-width: 400px;">
-            <div class="text-center mb-4">
-                <i class="fas fa-cash-register fa-3x text-primary mb-2"></i>
-                <h4 class="fw-bold">MiniPOS Pro</h4>
-                <p class="text-muted small">Ingrese credenciales de Administrador (Carlos / 2008#)</p>
-            </div>
-            <div class="mb-3">
-                <label class="form-label small fw-bold">Nombre de Usuario Admin</label>
-                <input type="text" id="auth-user" class="form-control" placeholder="Carlos">
-            </div>
-            <div class="mb-3">
-                <label class="form-label small fw-bold">Contraseña / PIN</label>
-                <input type="password" id="auth-pin" class="form-control" placeholder="2008#">
-            </div>
-            <div class="d-grid">
-                <button type="button" class="btn btn-primary fw-bold py-2" onclick="procesarAutenticacionAdmin()">
-                    <i class="fas fa-check-circle me-2"></i>Ingresar al Sistema
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ================= APLICACIÓN PRINCIPAL (OCULTA INICIALMENTE) ================= -->
-    <div id="app-main" style="display: none;">
+    <!-- ================= APLICACIÓN PRINCIPAL ================= -->
+    <div id="app-main">
         <!-- Navbar Superior -->
         <nav class="navbar navbar-dark bg-dark shadow-sm py-2">
             <div class="container-fluid">
@@ -188,12 +150,7 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Establecer el administrador predeterminado Carlos / 2008# en localStorage si no existe
-            if (!localStorage.getItem("minipos_admin")) {
-                localStorage.setItem("minipos_admin", JSON.stringify({ usuario: "Carlos", pin: "2008#" }));
-            }
-
-            // Inicializar artículos de prueba si no existen
+            // Inicializar base de datos de artículos por defecto si está vacía
             let articulosGuardados = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
             if (articulosGuardados.length === 0) {
                 for (let i = 1; i <= 200; i++) {
@@ -207,31 +164,9 @@
                 localStorage.setItem("minipos_articulos", JSON.stringify(articulosGuardados));
             }
 
-            // Si ya hay una sesión activa previa de admin en este navegador, salta directo
-            if (localStorage.getItem("minipos_sesion_activa") === "true") {
-                document.getElementById("auth-overlay").style.display = "none";
-                document.getElementById("app-main").style.display = "block";
-                renderCatalogoRapido();
-                renderCart();
-            }
+            renderCatalogoRapido();
+            renderCart();
         });
-
-        function procesarAutenticacionAdmin() {
-            let usuarioInput = document.getElementById("auth-user").value.trim();
-            let pinInput = document.getElementById("auth-pin").value.trim();
-
-            let adminRegistrado = JSON.parse(localStorage.getItem("minipos_admin")) || { usuario: "Carlos", pin: "2008#" };
-
-            if (usuarioInput.toLowerCase() === adminRegistrado.usuario.toLowerCase() && pinInput === adminRegistrado.pin) {
-                localStorage.setItem("minipos_sesion_activa", "true");
-                document.getElementById("auth-overlay").style.display = "none";
-                document.getElementById("app-main").style.display = "block";
-                renderCatalogoRapido();
-                renderCart();
-            } else {
-                alert("Usuario o Contraseña incorrectos. Use Carlos y 2008#");
-            }
-        }
 
         function abrirModalTurno() {
             let modal = new bootstrap.Modal(document.getElementById("modalTurno"));
@@ -380,4 +315,61 @@
                 }
 
                 contenedor.innerHTML += `
-                    <li class="list-g
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-2 small">
+                        <div>
+                            <strong>${item.nombre}</strong> <span class="badge bg-success" style="font-size:0.65rem;">${item.categoria}</span><br>
+                            <span class="text-muted">${item.cantidad} x $U ${item.precio.toFixed(2)}</span>
+                        </div>
+                        <div>
+                            <span class="fw-bold me-2">$U ${totalItem.toFixed(2)}</span>
+                            <button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="eliminarItemCarrito(${index})"><i class="fas fa-times"></i></button>
+                        </div>
+                    </li>`;
+            });
+
+            let totalPagar = subtotal - descuentoTotal;
+            document.getElementById("cart-subtotal").innerText = `$U ${subtotal.toFixed(2)}`;
+            document.getElementById("cart-descuento-monto").innerText = `-$U ${descuentoTotal.toFixed(2)}`;
+            document.getElementById("cart-total").innerText = `$U ${totalPagar.toFixed(2)}`;
+        }
+
+        function eliminarItemCarrito(index) {
+            let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
+            carrito.splice(index, 1);
+            localStorage.setItem("minipos_carrito", JSON.stringify(carrito));
+            renderCart();
+        }
+
+        function renderCatalogoRapido() {
+            let filtro = document.getElementById("input-buscar-articulo") ? document.getElementById("input-buscar-articulo").value.toLowerCase() : "";
+            let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+            let grid = document.getElementById("product-grid");
+            if (!grid) return;
+            grid.innerHTML = "";
+
+            let filtrados = articulos.filter(art => art.codigo.toString().includes(filtro) || art.nombre.toLowerCase().includes(filtro)).slice(0, 3);
+
+            filtrados.forEach(art => {
+                grid.innerHTML += `
+                    <div class="col">
+                        <div class="card shadow-sm border-0" onclick="agregarAlCarrito(${art.codigo})" style="cursor: pointer;">
+                            <div class="card-body py-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-secondary">Cód: ${art.codigo}</span>
+                                    <span class="badge bg-success" style="font-size:0.65rem;">${art.categoria}</span>
+                                    <h6 class="mb-0 fw-bold text-dark mt-1 small">${art.nombre}</h6>
+                                </div>
+                                <span class="text-success fw-bold">$U ${parseFloat(art.precio).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function filtrarCatalogoRapido() {
+            renderCatalogoRapido();
+        }
+
+        function guardarEnBaseDatos() {
+            let codigo = document.getElementById("db-code").value;
+            le
