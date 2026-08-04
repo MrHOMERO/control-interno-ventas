@@ -65,9 +65,14 @@
                                 <span><i class="fas fa-mobile-alt me-1"></i>Transferencia:</span>
                                 <span id="total-transf-ui">$U 0.00</span>
                             </div>
-                            <div class="d-flex justify-content-between mb-2 text-info" style="color: #0dcaf0 !important;">
+                            <div class="d-flex justify-content-between mb-1 text-info" style="color: #0dcaf0 !important;">
                                 <span><i class="fas fa-credit-card me-1"></i>Débito:</span>
                                 <span id="total-debito-ui">$U 0.00</span>
+                            </div>
+                            <!-- Control en amarillo de dinero descontado en el turno -->
+                            <div class="d-flex justify-content-between mb-2 text-dark bg-warning bg-opacity-25 px-2 py-1 rounded">
+                                <span><i class="fas fa-tags me-1"></i>Total Descuentos Turno:</span>
+                                <span id="total-descuentos-turno-ui" class="text-dark">$U 0.00</span>
                             </div>
                             <div class="border-top pt-2 mt-2 d-flex justify-content-between fs-6">
                                 <span class="text-dark">Fondo en Caja (Efectivo):</span>
@@ -99,14 +104,14 @@
                                     <input type="radio" class="btn-check" name="btnradio_pago" id="pago-debito" value="Debito" autocomplete="off" onchange="actualizarMetodoPago()">
                                     <label class="btn btn-outline-info btn-sm fw-bold" for="pago-debito"><i class="fas fa-credit-card d-block mb-1"></i>Débito</label>
                                 </div>
-                                <small id="info-descuento" class="text-success d-block mt-1 fw-bold" style="font-size: 0.75rem;">Aplica 10% de descuento en Carnes (Efectivo/Transferencia).</small>
+                                <small id="info-descuento" class="text-success d-block mt-1 fw-bold" style="font-size: 0.75rem;">Aplica descuento real en Carnes (Efectivo/Transferencia).</small>
                             </div>
                             <div class="d-flex justify-content-between mb-1 small text-muted">
                                 <span>Subtotal:</span>
                                 <span id="cart-subtotal">$U 0.00</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2 small text-danger">
-                                <span>Descuento 10% Carnes:</span>
+                                <span>Descuento Real (Total / 1.1):</span>
                                 <span id="cart-descuento-monto">-$U 0.00</span>
                             </div>
                             <div class="d-flex justify-content-between mb-3 border-top pt-2">
@@ -226,11 +231,12 @@
             let ventas = JSON.parse(localStorage.getItem("minipos_ventas")) || [];
             let ventasTurno = ventas.filter(v => v.cajero === cajeroActivo && v.turno === turnoActivo);
             
-            let totalEf = 0, totalTr = 0, totalDe = 0;
+            let totalEf = 0, totalTr = 0, totalDe = 0, totalDescTurno = 0;
             ventasTurno.forEach(v => {
                 if(v.pago === "Efectivo") totalEf += v.total;
                 if(v.pago === "Transferencia") totalTr += v.total;
                 if(v.pago === "Debito") totalDe += v.total;
+                totalDescTurno += (v.descuento || 0);
             });
 
             document.getElementById("contador-ventas").innerText = `${ventasTurno.length} Ventas`;
@@ -238,6 +244,7 @@
             document.getElementById("total-transf-ui").innerText = `$U ${totalTr.toFixed(2)}`;
             document.getElementById("total-debito-ui").innerText = `$U ${totalDe.toFixed(2)}`;
             document.getElementById("caja-efectivo-total").innerText = `$U ${totalEf.toFixed(2)}`;
+            document.getElementById("total-descuentos-turno-ui").innerText = `$U ${totalDescTurno.toFixed(2)}`;
         }
 
         function registrarAccion(accion) {
@@ -311,12 +318,7 @@
                 turnoActivo = "Ninguno";
                 document.getElementById("label-cajero-actual").innerText = `Cajero: Ninguno`;
                 document.getElementById("badge-turno").innerHTML = `<i class="fas fa-play-circle me-1"></i>Comenzar Turno`;
-                document.getElementById("badge-turno").className = "btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm";
-                
-                renderResumenTurno();
-                alert("Caja cerrada exitosamente.");
-            }
-        }function actualizarMetodoPago() {
+                document.getElementById("badge-turno").className = "btn btn-warning btn-sm fw-bfunction actualizarMetodoPago() {
             let radios = document.getElementsByName('btnradio_pago');
             for(let radio of radios) {
                 if(radio.checked) {
@@ -330,7 +332,7 @@
                 info.innerText = "Pago con Débito: NO aplica descuento en Carnes.";
                 info.className = "text-danger d-block mt-1 fw-bold";
             } else {
-                info.innerText = "Aplica 10% de descuento en Carnes (Efectivo/Transferencia).";
+                info.innerText = "Aplica descuento real en Carnes (Efectivo/Transferencia).";
                 info.className = "text-success d-block mt-1 fw-bold";
             }
             
@@ -398,6 +400,8 @@
                 document.getElementById("cart-subtotal").innerText = "$U 0.00";
                 document.getElementById("cart-descuento-monto").innerText = "-$U 0.00";
                 document.getElementById("cart-total").innerText = "$U 0.00";
+                window.totalActual = 0;
+                window.descuentoActual = 0;
                 return;
             }
 
@@ -407,8 +411,11 @@
                 let totalItem = item.precio * item.cantidad;
                 subtotal += totalItem;
 
+                // Descuento real aplicado usando la división del total dividido 1.1 para artículos de Carnes
+                let descuentoItem = 0;
                 if (item.categoria === "Carnes" && (metodoPagoActivo === "Efectivo" || metodoPagoActivo === "Transferencia")) {
-                    descuentoTotal += totalItem * 0.10;
+                    descuentoItem = totalItem - (totalItem / 1.1);
+                    descuentoTotal += descuentoItem;
                 }
 
                 contenedor.innerHTML += `
@@ -429,6 +436,7 @@
             document.getElementById("cart-descuento-monto").innerText = `-$U ${descuentoTotal.toFixed(2)}`;
             document.getElementById("cart-total").innerText = `$U ${totalPagar.toFixed(2)}`;
             window.totalActual = totalPagar; 
+            window.descuentoActual = descuentoTotal;
         }
 
         function eliminarItemCarrito(index) {
@@ -449,7 +457,8 @@
                 cajero: cajeroActivo,
                 turno: turnoActivo,
                 pago: metodoPagoActivo,
-                total: window.totalActual
+                total: window.totalActual,
+                descuento: window.descuentoActual || 0
             });
             localStorage.setItem("minipos_ventas", JSON.stringify(ventas));
 
@@ -488,7 +497,7 @@
                             <div class="card-body py-2 d-flex justify-content-between align-items-center">
                                 <div>
                                     <span class="badge ${esCoincidenciaBuscador ? 'bg-dark text-light' : 'bg-secondary'}">Cód: ${art.codigo}</span>
-                                    <span class="badge bg-success" style="font-size:0.65rem;">${art.categoria} (10% Desc)</span>
+                                    <span class="badge bg-success" style="font-size:0.65rem;">${art.categoria} (Desc. Real)</span>
                                     <h6 class="mb-0 fw-bold mt-1 small">${art.nombre}</h6>
                                 </div>
                                 <span class="fw-bold ${esCoincidenciaBuscador ? 'text-light' : 'text-success'}">$U ${parseFloat(art.precio).toFixed(2)}</span>
