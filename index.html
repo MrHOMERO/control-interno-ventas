@@ -75,9 +75,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- ================= VISTA PANEL ADMINISTRATIVO ================= -->
+            </div><!-- ================= VISTA PANEL ADMINISTRATIVO ================= -->
             <div id="view-dashboard" class="row" style="display: none;">
                 <div class="col-12 mb-3 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold text-secondary mb-0">Panel de Administración</h5>
@@ -150,7 +148,6 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Inicializar base de datos de artículos por defecto si está vacía
             let articulosGuardados = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
             if (articulosGuardados.length === 0) {
                 for (let i = 1; i <= 200; i++) {
@@ -372,4 +369,62 @@
 
         function guardarEnBaseDatos() {
             let codigo = document.getElementById("db-code").value;
-            le
+            let nombre = document.getElementById("db-name").value;
+            let precio = document.getElementById("db-price").value;
+            let categoria = document.getElementById("db-cat").value;
+
+            if (!codigo || !nombre || !precio) {
+                alert("Por favor complete todos los campos.");
+                return;
+            }
+
+            let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+            let index = articulos.findIndex(art => art.codigo == codigo);
+
+            if (index > -1) {
+                articulos[index].nombre = nombre;
+                articulos[index].precio = parseFloat(precio).toFixed(2);
+                articulos[index].categoria = categoria;
+            } else {
+                articulos.push({
+                    codigo: parseInt(codigo),
+                    nombre: nombre,
+                    categoria: categoria,
+                    precio: parseFloat(precio).toFixed(2)
+                });
+            }
+
+            localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
+            document.getElementById("db-code").value = "";
+            document.getElementById("db-name").value = "";
+            document.getElementById("db-price").value = "";
+            renderCatalogoRapido();
+            alert("Artículo guardado con éxito.");
+        }
+
+        function switchTab(tab) {
+            if (tab === 'pos') {
+                document.getElementById('view-pos').style.display = 'flex';
+                document.getElementById('view-dashboard').style.display = 'none';
+                renderCatalogoRapido();
+            }
+        }
+
+        function verAdmin() {
+            document.getElementById('view-pos').style.display = 'none';
+            document.getElementById('view-dashboard').style.display = 'flex';
+        }
+
+        function cobrarVenta() {
+            let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
+            if (carrito.length === 0) {
+                alert("El carrito está vacío.");
+                return;
+            }
+            alert("¡Venta cobrada con éxito!");
+            localStorage.removeItem("minipos_carrito");
+            renderCart();
+        }
+    </script>
+</body>
+                        </html>
