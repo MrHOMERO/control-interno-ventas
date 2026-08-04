@@ -57,12 +57,20 @@
                             </ul>
                         </div>
                         <div class="card-footer bg-white py-3">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted mb-1"><i class="fas fa-wallet me-1"></i>Forma de Pago:</label>
+                                <select id="forma-pago" class="form-select form-select-sm border-primary" onchange="renderCart()">
+                                    <option value="Efectivo">Efectivo (Aplica 10% en Carnicería)</option>
+                                    <option value="Transferencia">Transferencia (Aplica 10% en Carnicería)</option>
+                                    <option value="Debito">Tarjeta de Débito (Sin descuento)</option>
+                                </select>
+                            </div>
                             <div class="d-flex justify-content-between mb-1 small text-muted">
                                 <span>Subtotal:</span>
                                 <span id="cart-subtotal">$U 0.00</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2 small text-danger">
-                                <span>Descuento de Carnicería (10%):</span>
+                                <span>Descuento Aplicado:</span>
                                 <span id="cart-descuento-monto">-$U 0.00</span>
                             </div>
                             <div class="d-flex justify-content-between mb-3 border-top pt-2">
@@ -81,9 +89,36 @@
                     <h5 class="fw-bold text-secondary mb-0">Panel de Administración</h5>
                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchTab('pos')"><i class="fas fa-arrow-left me-1"></i>Volver a Caja</button>
                 </div>
+                
+                <!-- Historial de Ventas -->
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-dark text-white py-2 fw-bold small"><i class="fas fa-list-alt me-2"></i>Historial de Ventas por Turno</div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                                <table class="table table-sm table-striped table-hover mb-0 text-center" style="font-size: 0.85rem;">
+                                    <thead class="table-secondary sticky-top">
+                                        <tr>
+                                            <th>Fecha y Hora</th>
+                                            <th>Cajero</th>
+                                            <th>Turno</th>
+                                            <th>Pago</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabla-reportes">
+                                        <tr><td colspan="5" class="text-muted py-3">No hay ventas registradas aún.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Base de Datos de Artículos -->
                 <div class="col-12">
                     <div class="card shadow-sm border-0">
-                        <div class="card-header bg-white py-2 fw-bold small">Gestión de Artículos (Base de Datos)</div>
+                        <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-database me-2"></i>Gestión de Artículos (Catálogo)</div>
                         <div class="card-body bg-white">
                             <div class="row g-2">
                                 <div class="col-3"><input type="number" id="db-code" class="form-control form-control-sm" placeholder="Código"></div>
@@ -91,12 +126,12 @@
                                 <div class="col-2"><input type="number" step="0.01" id="db-price" class="form-control form-control-sm" placeholder="Precio"></div>
                                 <div class="col-2">
                                     <select id="db-cat" class="form-select form-select-sm">
-                                        <option value="Carniceria">Carnicería (10%)</option>
-                                        <option value="Almacen">Almacén (0%)</option>
+                                        <option value="Carniceria">Carnicería</option>
+                                        <option value="Almacen">Almacén</option>
                                     </select>
                                 </div>
                                 <div class="col-12 mt-2">
-                                    <button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="guardarEnBaseDatos()"><i class="fas fa-save me-1"></i>Guardar / Actualizar</button>
+                                    <button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="guardarEnBaseDatos()"><i class="fas fa-save me-1"></i>Guardar / Actualizar Artículo</button>
                                 </div>
                             </div>
                         </div>
@@ -118,8 +153,8 @@
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Seleccione Horario de Turno</label>
                         <select id="select-horario-turno" class="form-select">
-                            <option value="09:00 a 13:00">Turno Mañana (09:00 a 13:00)</option>
-                            <option value="17:00 a 21:00">Turno Tarde (17:00 a 21:00)</option>
+                            <option value="Mañana (09-13)">Turno Mañana (09:00 a 13:00)</option>
+                            <option value="Tarde (17-21)">Turno Tarde (17:00 a 21:00)</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -147,13 +182,18 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        // Variables globales para rastrear la sesión actual
+        let cajeroActivo = "Ninguno";
+        let turnoActivo = "Ninguno";
+
         document.addEventListener("DOMContentLoaded", function() {
+            // Inicializar base de datos con los 150 artículos de Carnicería
             let articulosGuardados = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
             if (articulosGuardados.length === 0) {
-                for (let i = 1; i <= 200; i++) {
+                for (let i = 1; i <= 150; i++) {
                     articulosGuardados.push({
                         codigo: i,
-                        nombre: `Artículo Carnicería ${i}`,
+                        nombre: `Corte Carnicería ${i}`,
                         categoria: "Carniceria",
                         precio: (100.00).toFixed(2)
                     });
@@ -163,6 +203,7 @@
 
             renderCatalogoRapido();
             renderCart();
+            renderReportes();
         });
 
         function abrirModalTurno() {
@@ -188,14 +229,18 @@
                 return;
             }
 
-            document.getElementById("label-cajero-actual").innerText = `Cajero: ${cajeroEncontrado.nombre}`;
-            document.getElementById("badge-turno").innerHTML = `<i class="fas fa-check-circle me-1"></i>Turno Activo (${horario})`;
+            // Guardar estado actual
+            cajeroActivo = cajeroEncontrado.nombre;
+            turnoActivo = horario;
+
+            document.getElementById("label-cajero-actual").innerText = `Cajero: ${cajeroActivo}`;
+            document.getElementById("badge-turno").innerHTML = `<i class="fas fa-check-circle me-1"></i>Turno Activo (${turnoActivo})`;
             document.getElementById("badge-turno").className = "btn btn-success btn-sm fw-bold text-white py-1 px-2 shadow-sm";
 
             let modalEl = document.getElementById("modalTurno");
             let modal = bootstrap.Modal.getInstance(modalEl);
             modal.hide();
-            alert(`Turno de ${horario} iniciado correctamente para ${cajeroEncontrado.nombre}.`);
+            alert(`Turno de ${turnoActivo} iniciado correctamente para ${cajeroActivo}.`);
         }
 
         function registrarNuevoCajero() {
@@ -289,6 +334,8 @@
         function renderCart() {
             let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
             let contenedor = document.getElementById("cart-items");
+            let formaPago = document.getElementById("forma-pago").value;
+            
             if (!contenedor) return;
             contenedor.innerHTML = "";
 
@@ -307,7 +354,8 @@
                 let totalItem = item.precio * item.cantidad;
                 subtotal += totalItem;
 
-                if (item.categoria === "Carniceria") {
+                // Aplicar descuento SOLO si es carnicería Y el pago NO es débito
+                if (item.categoria === "Carniceria" && (formaPago === "Efectivo" || formaPago === "Transferencia")) {
                     descuentoTotal += totalItem * 0.10;
                 }
 
@@ -328,6 +376,9 @@
             document.getElementById("cart-subtotal").innerText = `$U ${subtotal.toFixed(2)}`;
             document.getElementById("cart-descuento-monto").innerText = `-$U ${descuentoTotal.toFixed(2)}`;
             document.getElementById("cart-total").innerText = `$U ${totalPagar.toFixed(2)}`;
+            
+            // Guardar total actual globalmente para facilitar el cobro
+            window.totalActual = totalPagar; 
         }
 
         function eliminarItemCarrito(index) {
@@ -335,6 +386,70 @@
             carrito.splice(index, 1);
             localStorage.setItem("minipos_carrito", JSON.stringify(carrito));
             renderCart();
+        }
+
+        function cobrarVenta() {
+            let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
+            if (carrito.length === 0) {
+                alert("El carrito está vacío.");
+                return;
+            }
+            if (cajeroActivo === "Ninguno") {
+                alert("Debe iniciar turno y seleccionar un cajero antes de cobrar.");
+                abrirModalTurno();
+                return;
+            }
+
+            let formaPago = document.getElementById("forma-pago").value;
+            let total = window.totalActual || 0;
+            let fechaActual = new Date().toLocaleString('es-UY');
+
+            // Registrar Venta en la base de datos
+            let ventas = JSON.parse(localStorage.getItem("minipos_ventas")) || [];
+            ventas.push({
+                fecha: fechaActual,
+                cajero: cajeroActivo,
+                turno: turnoActivo,
+                pago: formaPago,
+                total: total
+            });
+            localStorage.setItem("minipos_ventas", JSON.stringify(ventas));
+
+            alert("¡Venta cobrada con éxito!");
+            localStorage.removeItem("minipos_carrito");
+            
+            renderCart();
+            renderReportes();
+        }
+
+        function renderReportes() {
+            let ventas = JSON.parse(localStorage.getItem("minipos_ventas")) || [];
+            let tabla = document.getElementById("tabla-reportes");
+            if(!tabla) return;
+            
+            tabla.innerHTML = "";
+            
+            if(ventas.length === 0) {
+                tabla.innerHTML = `<tr><td colspan="5" class="text-muted py-3">No hay ventas registradas aún.</td></tr>`;
+                return;
+            }
+
+            // Invertir para mostrar las más recientes arriba
+            ventas.slice().reverse().forEach(v => {
+                let badgePago = "bg-success";
+                if(v.pago === "Debito") badgePago = "bg-info text-dark";
+                if(v.pago === "Transferencia") badgePago = "bg-primary";
+                
+                tabla.innerHTML += `
+                    <tr>
+                        <td class="text-muted">${v.fecha}</td>
+                        <td class="fw-bold">${v.cajero}</td>
+                        <td>${v.turno}</td>
+                        <td><span class="badge ${badgePago}">${v.pago}</span></td>
+                        <td class="fw-bold text-success">$U ${v.total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
         }
 
         function renderCatalogoRapido() {
@@ -373,58 +488,4 @@
             let precio = document.getElementById("db-price").value;
             let categoria = document.getElementById("db-cat").value;
 
-            if (!codigo || !nombre || !precio) {
-                alert("Por favor complete todos los campos.");
-                return;
-            }
-
-            let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
-            let index = articulos.findIndex(art => art.codigo == codigo);
-
-            if (index > -1) {
-                articulos[index].nombre = nombre;
-                articulos[index].precio = parseFloat(precio).toFixed(2);
-                articulos[index].categoria = categoria;
-            } else {
-                articulos.push({
-                    codigo: parseInt(codigo),
-                    nombre: nombre,
-                    categoria: categoria,
-                    precio: parseFloat(precio).toFixed(2)
-                });
-            }
-
-            localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
-            document.getElementById("db-code").value = "";
-            document.getElementById("db-name").value = "";
-            document.getElementById("db-price").value = "";
-            renderCatalogoRapido();
-            alert("Artículo guardado con éxito.");
-        }
-
-        function switchTab(tab) {
-            if (tab === 'pos') {
-                document.getElementById('view-pos').style.display = 'flex';
-                document.getElementById('view-dashboard').style.display = 'none';
-                renderCatalogoRapido();
-            }
-        }
-
-        function verAdmin() {
-            document.getElementById('view-pos').style.display = 'none';
-            document.getElementById('view-dashboard').style.display = 'flex';
-        }
-
-        function cobrarVenta() {
-            let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
-            if (carrito.length === 0) {
-                alert("El carrito está vacío.");
-                return;
-            }
-            alert("¡Venta cobrada con éxito!");
-            localStorage.removeItem("minipos_carrito");
-            renderCart();
-        }
-    </script>
-</body>
-                        </html>
+            if (!codigo || !nombre 
