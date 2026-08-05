@@ -15,18 +15,23 @@
 
     <!-- ================= VISTA PRINCIPAL (POS) ================= -->
     <div id="view-pos" class="flex-grow-1 d-flex flex-column h-100">
-        <!-- Top Navbar / Header -->
+        <!-- Top Navbar / Header con Botones Restaurados -->
         <header class="bg-white border-bottom px-3 py-2 d-flex justify-content-between align-items-center shadow-sm">
             <div class="d-flex align-items-center gap-2">
                 <h4 class="m-0 fw-bold text-primary"><i class="fas fa-cash-register me-2"></i>MiniPOS</h4>
             </div>
-            <!-- Controles de Turno, Compras, Cierre y Admin -->
+            <!-- Controles de Turno, Compras, Cierre, Caja y Admin -->
             <div class="d-flex align-items-center gap-2">
                 <span id="label-cajero-actual" class="fw-bold text-dark small">Cajero: Ninguno</span>
                 
                 <!-- Botón Turno / Caja -->
                 <button id="badge-turno" class="btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm" onclick="abrirModalTurno()">
                     <i class="fas fa-play-circle me-1"></i>Comenzar Turno
+                </button>
+
+                <!-- Botón Caja / Vista -->
+                <button class="btn btn-outline-primary btn-sm fw-bold py-1 px-2 shadow-sm" onclick="switchTab('pos')">
+                    <i class="fas fa-cash-register me-1"></i> Caja
                 </button>
 
                 <!-- BOTÓN COMPRAS -->
@@ -46,10 +51,10 @@
             </div>
         </header>
 
-        <!-- Main Workspace (Grid de productos + Carrito) -->
+        <!-- Main Workspace (Buscador con resultado único + Carrito) -->
         <div class="container-fluid flex-grow-1 overflow-hidden p-3">
             <div class="row h-100 g-3">
-                <!-- Columna Izquierda: Buscador y Catálogo -->
+                <!-- Columna Izquierda: Buscador y Resultado Individual -->
                 <div class="col-lg-8 d-flex flex-column h-100">
                     <!-- Buscador / Escáner -->
                     <div class="input-group mb-3 shadow-sm">
@@ -58,11 +63,15 @@
                         <button class="btn btn-primary px-4 fw-bold" type="button" onclick="procesarCodigoBarras()">Buscar</button>
                     </div>
 
-                    <!-- Grilla de Artículos -->
-                    <div class="flex-grow-1 overflow-y-auto bg-white border rounded-3 p-3 shadow-sm">
-                        <div id="product-grid" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
-                            <!-- Los productos se cargan dinámicamente desde JS -->
-                        </div>
+                    <!-- Cuadro Único para el Producto Encontrado / Escaneado -->
+                    <div id="single-product-result" class="mb-3" style="display: none;">
+                        <!-- Se llena dinámicamente con el producto y opción de ingresar monto -->
+                    </div>
+
+                    <div class="flex-grow-1 bg-white border rounded-3 p-4 shadow-sm text-center text-muted d-flex flex-column justify-content-center align-items-center">
+                        <i class="fas fa-search fa-3x mb-3 text-secondary opacity-50"></i>
+                        <h5 class="fw-bold text-secondary">Escanee o escriba un código arriba</h5>
+                        <p class="small mb-0">El artículo aparecerá en el recuadro superior con su opción de peso/monto para agregarlo instantáneamente a la cuenta.</p>
                     </div>
                 </div>
 
@@ -146,7 +155,7 @@
         </header>
 
         <div class="container-fluid flex-grow-1 overflow-y-auto p-4">
-            <!-- Reportes de Ventas y Compras (Diarias, Semanales, Mensuales) -->
+            <!-- Reportes de Ventas y Compras -->
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
                     <div class="card shadow-sm border-0 bg-light">
@@ -174,7 +183,7 @@
                 </div>
             </div>
 
-            <!-- CONTROL DE KILOS VENDIDOS (NUEVO) -->
+            <!-- CONTROL DE KILOS VENDIDOS -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-success text-white fw-bold">
                     <i class="fas fa-weight-hanging me-2"></i>Control de Kilos Vendidos por Corte (Carnes)
@@ -406,4 +415,4 @@
     <!-- App Scripts -->
     <script src="app.js"></script>
 </body>
-        </html>
+    </html>
