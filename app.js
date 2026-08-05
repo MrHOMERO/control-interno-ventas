@@ -19,13 +19,11 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         localStorage.setItem("minipos_articulos", JSON.stringify(articulosBase));
     }
-    renderCatalogoRapido();
     renderCart();
     renderLogs();
     renderResumenTurno();
 });
 
-// Alerta personalizada con diseño limpio (reemplaza al alert nativo)
 function mostrarAlerta(mensaje) {
     let el = document.getElementById("texto-alerta-personalizada");
     if(el) el.innerText = mensaje;
@@ -229,73 +227,177 @@ function actualizarMetodoPago() {
     renderCart();
 }
 function manejarEnterEscanner(event) {
-    if (event.key === "Enter") { event.preventDefault(); procesarCodigoBarras(); }
+    if (event.key === "Enter") {
+        event.preventDefault();
+        let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+        let query = document.getElementById("input-buscar-articulo").value.trim().toLowerCase();
+        let articulo = articulos.find(art => art.codigo.toString() === query || art.nombre.toLowerCase().includes(query));
+        if (articulo) {
+            if (articulo.categoria === "Carnes") {
+                let inputMonto = document.getElementById("input-monto-carne-dinamico");
+                if (inputMonto) inputMonto.focus();
+            } else {
+                agregarArticuloBuscadoNormal(articulo.codigo);
+            }
+        } else {
+            mostrarAlerta("Artículo no encontrado.");
+        }
+    }
+}
+
+function manejarEnterMontoCarne(event, codigo) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        agregarArticuloBuscadoConMonto(codigo);
+    }
 }
 
 function procesarCodigoBarras() {
     let input = document.getElementById("input-buscar-articulo");
-    let codigoLeido = input.value.trim();
-    if (!codigoLeido) return;
+    let query = input.value.trim().toLowerCase();
+    if (!query) return;
     let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
-    let articuloEncontrado = articulos.find(art => art.codigo.toString() === codigoLeido || art.nombre.toLowerCase().includes(codigoLeido.toLowerCase()));
-    if (articuloEncontrado) {
-        agregarAlCarrito(articuloEncontrado.codigo);
-        input.value = "";
-        input.focus();
-        renderCatalogoRapido();
+    let articulo = articulos.find(art => art.codigo.toString() === query || art.nombre.toLowerCase().includes(query));
+    if (articulo) {
+        if (articulo.categoria !== "Carnes") {
+            agregarArticuloBuscadoNormal(articulo.codigo);
+        }
     } else {
         mostrarAlerta("Artículo no encontrado.");
     }
 }
 
-// ================= AGREGAR AL CARRITO CON CÁLCULO DE KILOS (CARNES) =================
-function agregarAlCarrito(codigo) {
+function agregarArticuloBuscadoNormal(codigo) {
+    agregarAlCarrito(codigo, 1, 0);
+}
+
+function agregarArticuloBuscadoConMonto(codigo) {
+    let inputMonto = document.getElementById("input-monto-carne-dinamico");
+    let monto = inputMonto ? parseFloat(inputMonto.value) : NaN;
+    if (isNaN(monto) || monto <= 0) {
+        mostrarAlerta("Ingrese un monto válido en dinero.");
+        if(inputMonto) inputMonto.focus();
+        return;
+    }
+    agregarAlCarrito(codigo, 1, monto);
+}
+
+// ================= BÚSQUEDA Y MUESTRA DE UN SOLO PRODUCTO CON MONTO PARA PESO =================
+function filtrarCatalogoRapido() {
+    let input = document.getElementById("input-buscar-articulo");
+    let query = input.value.trim().toLowerCase();
+    let contenedor = document.getElementById("single-product-result");
+    if (!contenedor) return;
+
+    if (query === "") {
+        contenedor.style.display = "none";
+        contenedor.innerHTML = "";
+        return;
+    }
+
+    let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
+    let articulo = articulos.find(art => art.codigo.toString() === query || art.nombre.toLowerCase().includes(query));
+
+    if (articulo) {
+        contenedor.style.display = "block";
+        let esCarne = articulo.categoria === "Carnes";
+        let extraInput = "";
+        
+        if (esCarne) {
+            extraInput = `
+                <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top">
+                    <label class="small fw-bold text-success mb-0"><i class="fas fa-weight-hanging me-1"></i>Ingresar Monto ($U):</label>
+                    <input type="number" id="input-monto-carne-dinamico" class="form-control form-control-sm w-25 fw-bold text-success" placeholder="Ej: 250" step="0.01" onkeydown="manejarEnterMontoCarne(event, ${articulo.codigo})" autofocus>
+                    <button class="btn btn-success btn-sm fw-bold px-4" onclick="agregarArticuloBuscadoConMonto(${articulo.codigo})">
+                        <i class="fas fa-plus me-1"></i>Agregar
+                    </button>
+                </div>
+            `;
+        } else {
+            extraInput = `
+                <div class="mt-3 pt-2 border-top text-end">
+                    <button class="btn btn-success btn-sm fw-bold px-4" onclick="agregarArticuloBuscadoNormal(${articulo.codigo})">
+                        <i class="fas fa-plus me-1"></i>Agregar a la cuenta
+                    </button>
+                </div>
+            `;
+        }
+
+        let badgeCatClass = articulo.categoria === "Carnes" ? "bg-success" : (articulo.categoria === "Almacén" ? "bg-primary" : "bg-info text-dark");
+        let textoPrecio = esCarne ? `$U ${parseFloat(articulo.precio).toFixed(2)} / kg (Por peso)` : `$U ${parseFloat(articulo.precio).toFixed(2)}`;
+
+        contenedor.innerHTML = `
+            <div class="card shadow-sm border border-success bg-white p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-secondary">Cód: ${articulo.codigo}</span>
+                        <span class="badge ${badgeCatClass}" style="font-size:0.65rem;">${articulo.categoria}</span>
+                        <h5 class="mb-0 fw-bold mt-1 text-dark">${articulo.nombre}</h5>
+                    </div>
+                    <span class="text-success fw-bold fs-6">${textoPrecio}</span>
+                </div>
+                ${extraInput}
+            </div>
+        `;
+    } else {
+        contenedor.style.display = "block";
+        contenedor.innerHTML = `
+            <div class="card shadow-sm border border-danger bg-white p-3 text-center">
+                <span class="text-danger small fw-bold">No se encontró ningún artículo con ese código o nombre.</span>
+            </div>
+        `;
+    }
+}
+
+// ================= AGREGAR AL CARRITO =================
+function agregarAlCarrito(codigo, cantidad = 1, montoPersonalizado = 0) {
     let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
     let articulo = articulos.find(art => art.codigo == codigo);
     if (!articulo) return;
 
     let precioPorKgOUnidad = parseFloat(articulo.precio);
-    let cantidadFinal = 1;
     let kilosFinal = 0;
+    let precioFinalLinea = precioPorKgOUnidad * cantidad;
 
     if (articulo.categoria === "Carnes") {
-        let inputMonto = prompt(`[VENTA DE CARNE POR PESO] - ${articulo.nombre}\nPrecio por Kg: $U ${precioPorKgOUnidad.toFixed(2)}\n\nIngrese el MONTO A COBRAR ($U) (Ej: 150 para $U 150):`, "");
-        if (inputMonto === null) return; // Si cancela
-        let montoDeseado = parseFloat(inputMonto);
-        if (isNaN(montoDeseado) || montoDeseado <= 0) {
-            mostrarAlerta("Monto ingresado inválido.");
-            return;
+        if (montoPersonalizado > 0) {
+            precioFinalLinea = montoPersonalizado;
+            kilosFinal = montoPersonalizado / precioPorKgOUnidad;
+        } else {
+            let inputMonto = prompt(`[VENTA DE CARNE POR PESO] - ${articulo.nombre}\nPrecio por Kg: $U ${precioPorKgOUnidad.toFixed(2)}\n\nIngrese el MONTO A COBRAR ($U):`, "");
+            if (inputMonto === null) return;
+            let montoDeseado = parseFloat(inputMonto);
+            if (isNaN(montoDeseado) || montoDeseado <= 0) {
+                mostrarAlerta("Monto ingresado inválido.");
+                return;
+            }
+            kilosFinal = montoDeseado / precioPorKgOUnidad;
+            precioFinalLinea = montoDeseado;
         }
-        // Calcular los kilos exactos
-        kilosFinal = montoDeseado / precioPorKgOUnidad;
-        precioPorKgOUnidad = montoDeseado; // El precio de la línea del carrito es el monto digitado
-        cantidadFinal = 1;
     }
 
     let carrito = JSON.parse(localStorage.getItem("minipos_carrito")) || [];
     
-    // Si es carne, cada pesaje se añade como ítem independiente en el carrito para mantener precisión exacta
     if (articulo.categoria === "Carnes") {
         carrito.push({ 
             codigo: articulo.codigo, 
             nombre: articulo.nombre, 
             categoria: articulo.categoria, 
-            precio: precioPorKgOUnidad, // Monto total cobrado por esta pesada
-            cantidad: cantidadFinal,
+            precio: precioFinalLinea,
+            cantidad: 1,
             kilos: kilosFinal 
         });
     } else {
-        // Productos normales por unidad
         let index = carrito.findIndex(item => item.codigo == codigo && item.categoria !== "Carnes");
         if (index > -1) {
-            carrito[index].cantidad += 1;
+            carrito[index].cantidad += cantidad;
         } else {
             carrito.push({ 
                 codigo: articulo.codigo, 
                 nombre: articulo.nombre, 
                 categoria: articulo.categoria, 
                 precio: precioPorKgOUnidad, 
-                cantidad: 1, 
+                cantidad: cantidad, 
                 kilos: 0 
             });
         }
@@ -303,6 +405,15 @@ function agregarAlCarrito(codigo) {
 
     localStorage.setItem("minipos_carrito", JSON.stringify(carrito));
     renderCart();
+
+    // Limpiar buscador y ocultar resultado único
+    document.getElementById("input-buscar-articulo").value = "";
+    let contenedor = document.getElementById("single-product-result");
+    if(contenedor) {
+        contenedor.style.display = "none";
+        contenedor.innerHTML = "";
+    }
+    document.getElementById("input-buscar-articulo").focus();
 }
 
 function renderCart() {
@@ -391,43 +502,7 @@ function cobrarVenta() {
     renderGrafica();
     renderTablaKilosAdmin();
     mostrarAlerta("¡Venta cobrada con éxito!");
-}
-
-function renderCatalogoRapido() {
-    let filtro = document.getElementById("input-buscar-articulo") ? document.getElementById("input-buscar-articulo").value.toLowerCase() : "";
-    let articulos = JSON.parse(localStorage.getItem("minipos_articulos")) || [];
-    let grid = document.getElementById("product-grid");
-    if (!grid) return;
-    grid.innerHTML = "";
-    let filtrados = articulos.filter(art => art.codigo.toString().includes(filtro) || art.nombre.toLowerCase().includes(filtro) || art.categoria.toLowerCase().includes(filtro));
-    if (filtrados.length === 0) {
-        grid.innerHTML = `<div class="p-3 text-center text-muted small">No se encontraron artículos.</div>`;
-        return;
-    }
-    filtrados.forEach(art => {
-        let esCoincidenciaBuscador = filtro !== "" && (art.codigo.toString() === filtro || art.nombre.toLowerCase().includes(filtro));
-        let claseColorCard = esCoincidenciaBuscador ? "bg-secondary text-white" : "bg-white text-dark";
-        let estiloExtra = esCoincidenciaBuscador ? "border: 2px solid #495057;" : "";
-        let badgeCatClass = art.categoria === "Carnes" ? "bg-success" : (art.categoria === "Almacén" ? "bg-primary" : "bg-info text-dark");
-        let textoPrecio = art.categoria === "Carnes" ? `$U ${parseFloat(art.precio).toFixed(2)} / kg (Por peso)` : `$U ${parseFloat(art.precio).toFixed(2)}`;
-        grid.innerHTML += `
-            <div class="col">
-                <div class="card shadow-sm ${claseColorCard}" style="cursor: pointer; ${estiloExtra}" onclick="agregarAlCarrito(${art.codigo})">
-                    <div class="card-body py-2 d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="badge ${esCoincidenciaBuscador ? 'bg-dark text-light' : 'bg-secondary'}">Cód: ${art.codigo}</span>
-                            <span class="badge ${badgeCatClass}" style="font-size:0.65rem;">${art.categoria}</span>
-                            <h6 class="mb-0 fw-bold mt-1 small">${art.nombre}</h6>
-                        </div>
-                        <span class="fw-bold ${esCoincidenciaBuscador ? 'text-light' : 'text-success'} small text-end">${textoPrecio}</span>
-                    </div>
-                </div>
-            </div>`;
-    });
-}
-
-function filtrarCatalogoRapido() { renderCatalogoRapido(); }
-// ================= REPORTES ADMIN (DIARIAS, SEMANALES, MENSUALES) =================
+    // ================= REPORTES ADMIN =================
 function renderReportesAdmin() {
     let ventas = JSON.parse(localStorage.getItem("minipos_ventas")) || [];
     let compras = JSON.parse(localStorage.getItem("minipos_compras")) || [];
@@ -634,7 +709,6 @@ function guardarProductoAdmin() {
     let modal = bootstrap.Modal.getInstance(modalEl);
     modal.hide();
     renderTablaAdminProductos();
-    renderCatalogoRapido();
 }
 
 function eliminarProductoAdmin(codigo) {
@@ -644,7 +718,6 @@ function eliminarProductoAdmin(codigo) {
         localStorage.setItem("minipos_articulos", JSON.stringify(articulos));
         registrarAccion(`Eliminó el artículo código ${codigo}`);
         renderTablaAdminProductos();
-        renderCatalogoRapido();
     }
 }
 
@@ -688,6 +761,16 @@ function switchTab(tab) {
     if (tab === 'pos') {
         document.getElementById('view-pos').style.display = 'flex';
         document.getElementById('view-dashboard').style.display = 'none';
-        renderCatalogoRapido();
+        let inputBusq = document.getElementById('input-buscar-articulo');
+        if(inputBusq) {
+            inputBusq.value = "";
+            inputBusq.focus();
+        }
+        let contenedor = document.getElementById('single-product-result');
+        if(contenedor) {
+            contenedor.style.display = 'none';
+            contenedor.innerHTML = "";
+        }
     }
     }
+}
