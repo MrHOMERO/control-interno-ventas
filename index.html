@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniPOS - Sistema de Caja</title>
+    <title>MiniPOS - Sistema de Caja Pro</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
@@ -15,32 +15,32 @@
 
     <!-- ================= VISTA PRINCIPAL (POS) ================= -->
     <div id="view-pos" class="flex-grow-1 d-flex flex-column h-100">
-        <!-- Top Navbar / Header con Botones Restaurados -->
+        <!-- Top Navbar / Header -->
         <header class="bg-white border-bottom px-3 py-2 d-flex justify-content-between align-items-center shadow-sm">
             <div class="d-flex align-items-center gap-2">
-                <h4 class="m-0 fw-bold text-primary"><i class="fas fa-cash-register me-2"></i>MiniPOS</h4>
+                <h4 class="m-0 fw-bold text-primary"><i class="fas fa-cash-register me-2"></i>MiniPOS Pro</h4>
             </div>
             <!-- Controles de Turno, Compras, Cierre, Caja y Admin -->
             <div class="d-flex align-items-center gap-2">
                 <span id="label-cajero-actual" class="fw-bold text-dark small">Cajero: Ninguno</span>
                 
-                <!-- Botón Turno / Caja -->
+                <!-- Botón Turno -->
                 <button id="badge-turno" class="btn btn-warning btn-sm fw-bold text-dark py-1 px-2 shadow-sm" onclick="abrirModalTurno()">
                     <i class="fas fa-play-circle me-1"></i>Comenzar Turno
                 </button>
 
-                <!-- Botón Caja / Vista -->
+                <!-- Botón Caja -->
                 <button class="btn btn-outline-primary btn-sm fw-bold py-1 px-2 shadow-sm" onclick="switchTab('pos')">
                     <i class="fas fa-cash-register me-1"></i> Caja
                 </button>
 
-                <!-- BOTÓN COMPRAS -->
+                <!-- Botón Compras -->
                 <button class="btn btn-sm fw-bold text-white shadow-sm py-1 px-2" style="background-color: #8b5cf6;" onclick="abrirModalCompra()">
                     <i class="fas fa-shopping-bag me-1"></i> Compras
                 </button>
 
-                <!-- Botón Cierre -->
-                <button class="btn btn-outline-danger btn-sm fw-bold py-1 px-2 shadow-sm" onclick="cerrarCaja()">
+                <!-- Botón Cierre (Abre Modal Personalizado) -->
+                <button class="btn btn-outline-danger btn-sm fw-bold py-1 px-2 shadow-sm" onclick="abrirModalCierreCaja()">
                     <i class="fas fa-power-off me-1"></i> Cierre
                 </button>
 
@@ -50,8 +50,7 @@
                 </button>
             </div>
         </header>
-
-        <!-- Main Workspace (Buscador con resultado único + Carrito) -->
+        <!-- Main Workspace -->
         <div class="container-fluid flex-grow-1 overflow-hidden p-3">
             <div class="row h-100 g-3">
                 <!-- Columna Izquierda: Buscador y Resultado Individual -->
@@ -65,7 +64,7 @@
 
                     <!-- Cuadro Único para el Producto Encontrado / Escaneado -->
                     <div id="single-product-result" class="mb-3" style="display: none;">
-                        <!-- Se llena dinámicamente con el producto y opción de ingresar monto -->
+                        <!-- Se llena dinámicamente -->
                     </div>
 
                     <div class="flex-grow-1 bg-white border rounded-3 p-4 shadow-sm text-center text-muted d-flex flex-column justify-content-center align-items-center">
@@ -79,7 +78,7 @@
                 <div class="col-lg-4 d-flex flex-column h-100">
                     <div class="card shadow-sm flex-grow-1 d-flex flex-column border-0">
                         <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
-                            <h6 class="m-0 fw-bold"><i class="fas fa-shopping-cart me-2"></i>Carrito de Venta</h6>
+                            <h6 class="m-0 fw-bold"><i class="fas fa-shopping-cart me-2"></i>Venta Actual</h6>
                             <span id="contador-ventas" class="badge bg-secondary">0 Ventas</span>
                         </div>
 
@@ -145,6 +144,7 @@
             </div>
         </footer>
     </div>
+
     <!-- ================= VISTA PANEL ADMINISTRADOR ================= -->
     <div id="view-dashboard" class="flex-grow-1 flex-column h-100 bg-white" style="display: none;">
         <header class="bg-dark text-white px-4 py-3 d-flex justify-content-between align-items-center shadow-sm">
@@ -155,7 +155,7 @@
         </header>
 
         <div class="container-fluid flex-grow-1 overflow-y-auto p-4">
-            <!-- Reportes de Ventas y Compras -->
+            <!-- Reportes -->
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
                     <div class="card shadow-sm border-0 bg-light">
@@ -183,7 +183,7 @@
                 </div>
             </div>
 
-            <!-- CONTROL DE KILOS VENDIDOS -->
+            <!-- CONTROL DE KILOS -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-success text-white fw-bold">
                     <i class="fas fa-weight-hanging me-2"></i>Control de Kilos Vendidos por Corte (Carnes)
@@ -199,9 +199,7 @@
                                     <th>Total Recaudado ($U)</th>
                                 </tr>
                             </thead>
-                            <tbody id="tabla-kilos-admin">
-                                <!-- Se carga dinámicamente -->
-                            </tbody>
+                            <tbody id="tabla-kilos-admin"></tbody>
                         </table>
                     </div>
                 </div>
@@ -244,7 +242,7 @@
                 </div>
             </div>
 
-            <!-- Bitácora de Actividad -->
+            <!-- Bitácora -->
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white fw-bold"><i class="fas fa-history me-2"></i>Registro de Actividad y Auditoría</div>
                 <div class="card-body p-0">
@@ -263,9 +261,8 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- ================= MODALES ================= -->
+                            </div>
+                            <!-- ================= MODALES ================= -->
 
     <!-- Modal Turno -->
     <div class="modal fade" id="modalTurno" tabindex="-1">
@@ -304,6 +301,27 @@
         </div>
     </div>
 
+    <!-- Modal Cierre de Caja Personalizado (Reemplaza el confirm nativo) -->
+    <div class="modal fade" id="modalCierreCaja" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-power-off me-2"></i>=== CIERRE DE CAJA ===</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2"><strong>Cajero:</strong> <span id="cierre-cajero-txt">Ninguno</span></p>
+                    <p class="mb-3"><strong>Total vendido en turno:</strong> <span id="cierre-total-txt" class="text-success fw-bold">$U 0.00</span></p>
+                    <p class="text-center fw-bold text-dark mb-0">¿Confirma el cierre de caja?</p>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger px-4" onclick="confirmarCierreCaja()">Aceptar Cierre</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Admin Login -->
     <div class="modal fade" id="modalAdmin" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
@@ -326,7 +344,7 @@
         </div>
     </div>
 
-    <!-- Modal Producto (Crear / Editar) -->
+    <!-- Modal Producto -->
     <div class="modal fade" id="modalProducto" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -364,7 +382,7 @@
         </div>
     </div>
 
-    <!-- Modal Alerta Personalizada -->
+    <!-- Modal Alerta -->
     <div class="modal fade" id="modalAlerta" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -382,7 +400,7 @@
         </div>
     </div>
 
-    <!-- Modal para Registrar Compras -->
+    <!-- Modal Compras -->
     <div class="modal fade" id="modalCompra" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -392,7 +410,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">¿A quién se le compró? (Proveedor)</label>
+                        <label class="form-label">Proveedor</label>
                         <input type="text" id="input-compra-proveedor" class="form-control" placeholder="Ej: Frigorífico San José">
                     </div>
                     <div class="mb-3">
@@ -408,11 +426,9 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS Bundle -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- App Scripts -->
     <script src="app.js"></script>
 </body>
-    </html>
+</html>
