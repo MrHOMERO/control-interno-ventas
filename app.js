@@ -1,9 +1,9 @@
 let catalogo = JSON.parse(localStorage.getItem('minipos_catalogo')) || [];
 if (catalogo.length === 0) {
-    for (let i = 1; i <= 200; i++) {
+    for (let i = 1; i <= 50; i++) {
         catalogo.push({
             codigo: i.toString(),
-            nombre: `Corte de Carnicería Especial ${i}`,
+            nombre: `Corte Vacuno Especial ${i}`,
             categoria: "Carnes",
             precio: parseFloat((250 + (i * 0.5)).toFixed(2))
         });
@@ -16,8 +16,11 @@ if (catalogo.length === 0) {
 }
 
 let carrito = [];
+// Historiales completos de por vida
 let ventas = JSON.parse(localStorage.getItem('minipos_ventas')) || [];
 let compras = JSON.parse(localStorage.getItem('minipos_compras')) || [];
+let cierresHistorial = JSON.parse(localStorage.getItem('minipos_cierresHistorial')) || [];
+
 let proveedoresRegistrados = JSON.parse(localStorage.getItem('minipos_proveedores')) || ["Frigorífico Modelo", "Distribuidora Carnes del Este", "Bebidas Uruguay S.A."];
 let cajerosRegistrados = JSON.parse(localStorage.getItem('minipos_cajeros')) || [
     { nombre: "Admin", pin: "6272" },
@@ -28,8 +31,12 @@ let cajeroActual = JSON.parse(localStorage.getItem('minipos_cajeroActual')) || n
 let horarioTurnoActual = localStorage.getItem('minipos_horarioTurno') || "Sin Turno";
 let fondoInicialCaja = parseFloat(localStorage.getItem('minipos_fondoInicial')) || 0;
 let metodoPagoActual = "Efectivo";
+let filtroTemporalActual = "hoy"; // 'hoy', 'semana', 'mes', 'historico'
 
 let modalTurno, modalCrearUsuario, modalCompras, modalCrearProveedor, modalCierre, modalAdmin, modalProducto, modalAlerta;
+let chartVentasGastosInstancia = null;
+let chartCortesInstancia = null;
+let chartKilosInstancia = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     modalTurno = new bootstrap.Modal(document.getElementById('modalTurno'));
@@ -55,6 +62,7 @@ function guardarEnStorage() {
     localStorage.setItem('minipos_catalogo', JSON.stringify(catalogo));
     localStorage.setItem('minipos_ventas', JSON.stringify(ventas));
     localStorage.setItem('minipos_compras', JSON.stringify(compras));
+    localStorage.setItem('minipos_cierresHistorial', JSON.stringify(cierresHistorial));
     localStorage.setItem('minipos_proveedores', JSON.stringify(proveedoresRegistrados));
     localStorage.setItem('minipos_cajeros', JSON.stringify(cajerosRegistrados));
     localStorage.setItem('minipos_cajeroActual', JSON.stringify(cajeroActual));
@@ -209,9 +217,12 @@ function cobrarVenta() {
     });
 
     const ahora = new Date();
+    const fechaIso = ahora.toISOString(); // Guardado avanzado con fecha ISO para filtrado preciso
     const fechaHoraStr = ahora.toLocaleDateString() + ' ' + ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     ventas.push({
+        id: Date.now(),
+        fechaIso: fechaIso,
         cajero: cajeroActual.nombre,
         fechaHora: fechaHoraStr,
         metodo: metodoPagoActual,
@@ -273,7 +284,16 @@ function registrarCompraProveedor() {
         return mostrarAlerta("Seleccione un proveedor válido y un monto mayor a 0.");
     }
 
-    compras.push({ proveedor, monto, pago });
+    const ahora = new Date();
+    compras.push({
+        id: Date.now(),
+        fechaIso: ahora.toISOString(),
+        fechaHora: ahora.toLocaleDateString() + ' ' + ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        proveedor,
+        monto,
+        pago
+    });
+
     guardarEnStorage();
     modalCompras.hide();
     actualizarResumenTurno();
@@ -359,12 +379,12 @@ function actualizarResumenTurno() {
     let cajaFisicaEfectivo = fondoInicialCaja + tEfe - comprasEfe;
 
     document.getElementById('label-horario-turno').textContent = horarioTurnoActual;
-    document.getElementById('contador-ventas-turno').textContent = `${ventas.length} Ventas`;
+    document.getElementById('contador-ventas-turno').textContent = `${ventas.length} Ventas Total`;
     document.getElementById('resumen-efectivo').textContent = `$U ${tEfe.toFixed(2)}`;
     document.getElementById('resumen-transf').textContent = `$U ${tTra.toFixed(2)}`;
     document.getElementById('resumen-debito').textContent = `$U ${tDeb.toFixed(2)}`;
     document.getElementById('resumen-compras-efe').textContent = `-$U ${comprasEfe.toFixed(2)}`;
-    document.getElementById('resumen-compras-trans').textContent = `$U ${comprasTrans.toFixed(2)}`;
+    document.getElementById('resumen-compras-trans').textContent = `-$U ${comprasTrans.toFixed(2)}`;
     document.getElementById('resumen-descuentos').textContent = `$U ${tDesc.toFixed(2)}`;
     document.getElementById('resumen-fondo-caja').textContent = `$U ${cajaFisicaEfectivo.toFixed(2)}`;
 }
@@ -399,8 +419,22 @@ function abrirModalCierreCaja() {
 }
 
 function confirmarCierreCaja() {
-    ventas = [];
-    compras = [];
+    // Almacenar el registro del arqueo en el historial de cierres, sin borrar las ventas ni compras de por vida
+    let tEfe = 0;
+    ventas.forEach(v => { if (v.metodo === 'Efectivo') tEfe += v.total; });
+    let comprasEfe = 0;
+    compras.forEach(c => { if (c.pago === 'Efectivo') comprasEfe += c.monto; });
+    let cajaFisicaEfectivo = fondoInicialCaja + tEfe - comprasEfe;
+
+    cierresHistorial.push({
+        fechaHora: new Date().toLocaleString(),
+        fondoInicial: fondoInicialCaja,
+        ventasEfectivo: tEfe,
+        comprasEfectivo: comprasEfe,
+        totalCaja: cajaFisicaEfectivo,
+        cajero: cajeroActual ? cajeroActual.nombre : "Desconocido"
+    });
+
     fondoInicialCaja = 0;
     horarioTurnoActual = "Sin Turno";
     cajeroActual = null;
@@ -409,7 +443,7 @@ function confirmarCierreCaja() {
     document.getElementById('label-cajero-actual').textContent = "Cajero: Ninguno";
     actualizarResumenTurno();
     modalCierre.hide();
-    mostrarAlerta("Caja cerrada y reseteada para el próximo turno.");
+    mostrarAlerta("Cierre guardado. El historial de ventas y compras permanece intacto.");
 }
 
 function verAdmin() { modalAdmin.show(); }
@@ -423,33 +457,78 @@ function verificarAccesoAdmin() {
     }
 }
 
+function cambiarFiltroTemporal(tipo) {
+    filtroTemporalActual = tipo;
+    ['hoy', 'semana', 'mes', 'historico'].forEach(t => {
+        const btn = document.getElementById(`btn-filtro-${t}`);
+        if (btn) btn.classList.remove('active');
+    });
+    document.getElementById(`btn-filtro-${tipo}`).classList.add('active');
+    actualizarDashboardAdmin();
+}
+
+function filtrarPorTiempo(lista) {
+    if (filtroTemporalActual === 'historico') return lista;
+
+    const ahora = new Date();
+    return lista.filter(item => {
+        if (!item.fechaIso) return true;
+        const fechaItem = new Date(item.fechaIso);
+
+        if (filtroTemporalActual === 'hoy') {
+            return fechaItem.toDateString() === ahora.toDateString();
+        } else if (filtroTemporalActual === 'semana') {
+            const unDiaMs = 24 * 60 * 60 * 1000;
+            const diffDias = Math.abs((ahora - fechaItem) / unDiaMs);
+            return diffDias <= 7;
+        } else if (filtroTemporalActual === 'mes') {
+            return fechaItem.getMonth() === ahora.getMonth() && fechaItem.getFullYear() === ahora.getFullYear();
+        }
+        return true;
+    });
+}
+
 function actualizarDashboardAdmin() {
+    const ventasFiltradas = filtrarPorTiempo(ventas);
+    const comprasFiltradas = filtrarPorTiempo(compras);
+
     let totalEfe = 0, totalDeb = 0, totalTra = 0;
-    ventas.forEach(v => {
+    ventasFiltradas.forEach(v => {
         if (v.metodo === 'Efectivo') totalEfe += v.total;
         if (v.metodo === 'Debito') totalDeb += v.total;
         if (v.metodo === 'Transferencia') totalTra += v.total;
     });
 
+    let totalGastos = 0;
+    comprasFiltradas.forEach(c => { totalGastos += c.monto; });
+
     document.getElementById('admin-total-efe').textContent = `$U ${totalEfe.toFixed(2)}`;
     document.getElementById('admin-total-deb').textContent = `$U ${totalDeb.toFixed(2)}`;
     document.getElementById('admin-total-tra').textContent = `$U ${totalTra.toFixed(2)}`;
-    document.getElementById('admin-total-transacciones').textContent = ventas.length;
+    document.getElementById('admin-total-gastos').textContent = `$U ${totalGastos.toFixed(2)}`;
 
+    // Agrupar Kilos / Unidades y Cortes
     let mapaKilos = {};
-    ventas.forEach(v => {
+    let mapaCortesMonto = {};
+    ventasFiltradas.forEach(v => {
         v.items.forEach(i => {
             if (!mapaKilos[i.codigo]) {
                 mapaKilos[i.codigo] = { codigo: i.codigo, nombre: i.nombre, categoria: i.categoria, cantidad: 0 };
             }
             mapaKilos[i.codigo].cantidad += i.cantidad;
+
+            if (!mapaCortesMonto[i.nombre]) {
+                mapaCortesMonto[i.nombre] = 0;
+            }
+            mapaCortesMonto[i.nombre] += i.subtotal;
         });
     });
 
+    // Renderizar Tabla Kilos
     const tbodyKilos = document.getElementById('tabla-admin-kilos');
     const listaKilosArr = Object.values(mapaKilos);
     if (listaKilosArr.length === 0) {
-        tbodyKilos.innerHTML = `<tr><td colspan="4" class="text-muted py-2">No hay ventas registradas aún</td></tr>`;
+        tbodyKilos.innerHTML = `<tr><td colspan="4" class="text-muted py-2">No hay ventas registradas en este periodo</td></tr>`;
     } else {
         tbodyKilos.innerHTML = listaKilosArr.map(k => `
             <tr>
@@ -461,11 +540,12 @@ function actualizarDashboardAdmin() {
         `).join('');
     }
 
+    // Renderizar Tabla Transacciones Históricas
     const tbodyTrans = document.getElementById('tabla-admin-transacciones');
-    if (ventas.length === 0) {
+    if (ventasFiltradas.length === 0) {
         tbodyTrans.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-2">Sin transacciones registradas</td></tr>`;
     } else {
-        tbodyTrans.innerHTML = ventas.slice().reverse().map(v => `
+        tbodyTrans.innerHTML = ventasFiltradas.slice().reverse().map(v => `
             <tr class="border-bottom">
                 <td class="text-center text-muted" style="font-size: 11px;">${v.fechaHora}</td>
                 <td class="text-center fw-bold text-primary">${v.cajero}</td>
@@ -480,7 +560,92 @@ function actualizarDashboardAdmin() {
         `).join('');
     }
 
+    // Renderizar Tabla Cierres Históricos
+    const tbodyCierres = document.getElementById('tabla-admin-cierres');
+    if (cierresHistorial.length === 0) {
+        tbodyCierres.innerHTML = `<tr><td colspan="5" class="text-muted py-2">No hay cierres registrados aún</td></tr>`;
+    } else {
+        tbodyCierres.innerHTML = cierresHistorial.slice().reverse().map(c => `
+            <tr>
+                <td>${c.fechaHora} (${c.cajero})</td>
+                <td>$U ${c.fondoInicial.toFixed(2)}</td>
+                <td class="text-success">$U ${c.ventasEfectivo.toFixed(2)}</td>
+                <td class="text-danger">-$U ${c.comprasEfectivo.toFixed(2)}</td>
+                <td class="fw-bold">$U ${c.totalCaja.toFixed(2)}</td>
+            </tr>
+        `).join('');
+    }
+
     renderTablaAdminProductos();
+    renderizarGraficas(totalEfe, totalTra, totalDeb, totalGastos, mapaCortesMonto, listaKilosArr);
+}
+
+function renderizarGraficas(tEfe, tTra, tDeb, tGastos, mapaCortesMonto, listaKilosArr) {
+    // Destruir instancias previas para evitar conflictos de canvas en Chart.js
+    if (chartVentasGastosInstancia) chartVentasGastosInstancia.destroy();
+    if (chartCortesInstancia) chartCortesInstancia.destroy();
+    if (chartKilosInstancia) chartKilosInstancia.destroy();
+
+    // GRÁFICA 1: Ventas por Método y Gastos
+    const ctx1 = document.getElementById('chartVentasGastos').getContext('2d');
+    chartVentasGastosInstancia = new Chart(ctx1, {
+        type: 'pie',
+        data: {
+            labels: ['Efectivo', 'Transferencia', 'Débito/Créd.', 'Gastos/Compras'],
+            datasets: [{
+                data: [tEfe, tTra, tDeb, tGastos],
+                backgroundColor: ['#198754', '#0d6efd', '#0dcaf0', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
+        }
+    });
+
+    // GRÁFICA 2: Cortes más Vendidos (por importe)
+    const cortesLabels = Object.keys(mapaCortesMonto).slice(0, 5); // Top 5 cortes
+    const cortesData = Object.values(mapaCortesMonto).slice(0, 5);
+    const ctx2 = document.getElementById('chartCortes').getContext('2d');
+    chartCortesInstancia = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: cortesLabels.length > 0 ? cortesLabels : ['Sin Datos'],
+            datasets: [{
+                label: 'Ingresos ($U)',
+                data: cortesData.length > 0 ? cortesData : [0],
+                backgroundColor: '#ffc107'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } }
+        }
+    });
+
+    // GRÁFICA 3: Cantidad de Kilos / Unidades
+    const topKilos = listaKilosArr.sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
+    const kilosLabels = topKilos.map(k => k.nombre);
+    const kilosData = topKilos.map(k => k.cantidad);
+    const ctx3 = document.getElementById('chartKilos').getContext('2d');
+    chartKilosInstancia = new Chart(ctx3, {
+        type: 'doughnut',
+        data: {
+            labels: kilosLabels.length > 0 ? kilosLabels : ['Sin Datos'],
+            datasets: [{
+                data: kilosData.length > 0 ? kilosData : [1],
+                backgroundColor: ['#6610f2', '#6f42c1', '#d63384', '#fd7e14', '#20c997']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }
+        }
+    });
 }
 
 function renderTablaAdminProductos() {
