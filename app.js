@@ -1,728 +1,461 @@
-let catalogo = JSON.parse(localStorage.getItem('minipos_catalogo')) || [];
-if (catalogo.length === 0) {
-    for (let i = 1; i <= 50; i++) {
-        catalogo.push({
-            codigo: i.toString(),
-            nombre: `Corte Vacuno Especial ${i}`,
-            categoria: "Carnes",
-            precio: parseFloat((250 + (i * 0.5)).toFixed(2))
-        });
-    }
-    catalogo.push(
-        { codigo: "501", nombre: "Coca Cola 2L", categoria: "Bebidas", precio: 130 },
-        { codigo: "601", nombre: "Pan Flauta 1Kg", categoria: "Almacén", precio: 90 }
-    );
-    localStorage.setItem('minipos_catalogo', JSON.stringify(catalogo));
-}
-
-let carrito = [];
-// Historiales completos de por vida
-let ventas = JSON.parse(localStorage.getItem('minipos_ventas')) || [];
-let compras = JSON.parse(localStorage.getItem('minipos_compras')) || [];
-let cierresHistorial = JSON.parse(localStorage.getItem('minipos_cierresHistorial')) || [];
-
-let proveedoresRegistrados = JSON.parse(localStorage.getItem('minipos_proveedores')) || ["Frigorífico Modelo", "Distribuidora Carnes del Este", "Bebidas Uruguay S.A."];
-let cajerosRegistrados = JSON.parse(localStorage.getItem('minipos_cajeros')) || [
-    { nombre: "Admin", pin: "6272" },
-    { nombre: "Juan Pérez", pin: "1111" }
+// ==========================================
+// ESTADOS GLOBALES Y DATOS INICIALES
+// ==========================================
+let catalogo = JSON.parse(localStorage.getItem('carniceria_catalogo')) || [
+    { codigo: "18", nombre: "PUCHERO", categoria: "Carnes", precio: 108.00 },
+    { codigo: "23", nombre: "CHORIZO MEZCLA", categoria: "Carnes", precio: 345.00 },
+    { codigo: "1", nombre: "ASADO", categoria: "Carnes", precio: 380.00 },
+    { codigo: "2", nombre: "MILANESA DE CARNE", categoria: "Carnes", precio: 320.00 },
+    { codigo: "100", nombre: "COCA COLA 1.5L", categoria: "Bebidas", precio: 120.00 }
 ];
 
-let cajeroActual = JSON.parse(localStorage.getItem('minipos_cajeroActual')) || null;
-let horarioTurnoActual = localStorage.getItem('minipos_horarioTurno') || "Sin Turno";
-let fondoInicialCaja = parseFloat(localStorage.getItem('minipos_fondoInicial')) || 0;
-let metodoPagoActual = "Efectivo";
-let filtroTemporalActual = "hoy"; // 'hoy', 'semana', 'mes', 'historico'
+let carrito = [];
+let historialVentas = JSON.parse(localStorage.getItem('carniceria_historial')) || [];
+let cajerosRegistrados = JSON.parse(localStorage.getItem('carniceria_cajeros')) || [
+    { nombre: "Carlos", pin: "1234" }
+];
+let turnoActual = JSON.parse(localStorage.getItem('carniceria_turno')) || null;
 
-let modalTurno, modalCrearUsuario, modalCompras, modalCrearProveedor, modalCierre, modalAdmin, modalProducto, modalAlerta;
-let chartVentasGastosInstancia = null;
-let chartCortesInstancia = null;
-let chartKilosInstancia = null;
-
+// Inicialización de la aplicación al cargar la página
 document.addEventListener("DOMContentLoaded", () => {
-    modalTurno = new bootstrap.Modal(document.getElementById('modalTurno'));
-    modalCrearUsuario = new bootstrap.Modal(document.getElementById('modalCrearUsuario'));
-    modalCompras = new bootstrap.Modal(document.getElementById('modalCompras'));
-    modalCrearProveedor = new bootstrap.Modal(document.getElementById('modalCrearProveedor'));
-    modalCierre = new bootstrap.Modal(document.getElementById('modalCierreCaja'));
-    modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
-    modalProducto = new bootstrap.Modal(document.getElementById('modalProducto'));
-    modalAlerta = new bootstrap.Modal(document.getElementById('modalAlerta'));
-
-    if (cajeroActual) {
-        document.getElementById('label-cajero-actual').textContent = `Cajero: ${cajeroActual.nombre}`;
-    }
-
     renderCatalogoGeneral(catalogo);
-    actualizarMetodoPago();
     renderCarrito();
-    actualizarResumenTurno();
+    actualizarInfoTurnoVisual();
+    cargarSelectsCajeros();
 });
 
-function guardarEnStorage() {
-    localStorage.setItem('minipos_catalogo', JSON.stringify(catalogo));
-    localStorage.setItem('minipos_ventas', JSON.stringify(ventas));
-    localStorage.setItem('minipos_compras', JSON.stringify(compras));
-    localStorage.setItem('minipos_cierresHistorial', JSON.stringify(cierresHistorial));
-    localStorage.setItem('minipos_proveedores', JSON.stringify(proveedoresRegistrados));
-    localStorage.setItem('minipos_cajeros', JSON.stringify(cajerosRegistrados));
-    localStorage.setItem('minipos_cajeroActual', JSON.stringify(cajeroActual));
-    localStorage.setItem('minipos_horarioTurno', horarioTurnoActual);
-    localStorage.setItem('minipos_fondoInicial', fondoInicialCaja);
-}
+// ==========================================
+// LÓGICA DE ESCANEO Y TICKETS DE BALANZA
+// ==========================================
+function procesarCodigoBarras() {
+    const inputField = document.getElementById('input-buscar-articulo');
+    const val = inputField.value.trim();
+    if (!val) return;
 
-function switchTab(tab) {
-    document.getElementById('view-pos').style.display = tab === 'pos' ? 'block' : 'none';
-    document.getElementById('view-dashboard').style.display = tab === 'pos' ? 'none' : 'block';
-    if (tab === 'dashboard') actualizarDashboardAdmin();
-}
-
-function mostrarAlerta(msg) {
-    document.getElementById('texto-alerta-personalizada').textContent = msg;
-    modalAlerta.show();
-}
-
-function renderCatalogoGeneral(lista) {
-    const contenedor = document.getElementById('lista-catalogo-general');
-    if (lista.length === 0) {
-        contenedor.innerHTML = `<p class="text-center text-muted small my-2">No se encontraron artículos</p>`;
+    // 1. VERIFICAR SI ES UN CÓDIGO DE BARRAS DE BALANZA (Empieza con '2' y tiene 13 dígitos, Ej: 2000180069549)
+    if (val.startsWith('2') && val.length === 13) {
+        procesarTicketBalanza(val);
+        inputField.value = '';
         return;
     }
-    contenedor.innerHTML = lista.map(p => `
-        <div class="d-flex justify-content-between align-items-center border-bottom py-1 px-1">
-            <div>
-                <span class="badge bg-secondary" style="font-size: 10px;">Cód: ${p.codigo}</span>
-                ${p.categoria === 'Carnes' ? '<span class="badge bg-success" style="font-size: 9px;">Carnes (Desc. Real)</span>' : ''}
-                <div class="fw-bold small text-dark">${p.nombre}</div>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="text-success fw-bold small">$U ${p.precio}</span>
-                <button class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 11px;" onclick="agregarAlCarritoDirecto('${p.codigo}')">
-                    <i class="fas fa-plus"></i>
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
 
-function filtrarCatalogoRapido(val) {
-    const query = val.toLowerCase().trim();
-    const filtrados = catalogo.filter(p => p.codigo.includes(query) || p.nombre.toLowerCase().includes(query));
-    renderCatalogoGeneral(filtrados);
-}
-
-function manejarEnterEscanner(e) {
-    if (e.key === 'Enter') procesarCodigoBarras();
-}
-
-function procesarCodigoBarras() {
-    const val = document.getElementById('input-buscar-articulo').value.trim();
+    // 2. Búsqueda normal por código exacto o nombre de producto
     const prod = catalogo.find(p => p.codigo === val || p.nombre.toLowerCase() === val.toLowerCase());
     if (prod) {
         agregarAlCarritoDirecto(prod.codigo);
-        document.getElementById('input-buscar-articulo').value = '';
-        renderCatalogoGeneral(catalogo);
+        inputField.value = '';
     } else {
-        mostrarAlerta("Artículo no encontrado");
+        mostrarAlerta("Artículo o código de balanza no encontrado");
     }
+}
+
+function procesarTicketBalanza(codigoBalanza) {
+    // Estructura del ticket de balanza:
+    // Posición 1: '2'
+    // Posiciones 2 a 6 (5 dígitos): Código del producto (ej: "00018" -> "18")
+    // Posiciones 7 a 11 (5 dígitos): Peso en gramos (ej: "00695" -> 695 gramos = 0.695 kg)
+    // Posiciones 12 y 13: Dígitos de control
+    
+    const codigoProdStr = codigoBalanza.substring(1, 6).replace(/^0+/, ''); 
+    const pesoGramosStr = codigoBalanza.substring(6, 11);
+    
+    const pesoKilos = parseInt(pesoGramosStr, 10) / 1000; // Convierte gramos a kilos exactos (ej: 0.695)
+
+    let producto = catalogo.find(p => p.codigo === codigoProdStr || p.codigo === codigoBalanza.substring(1, 6));
+
+    if (!producto) {
+        mostrarAlerta(`Ticket leído, pero el código de producto (${codigoProdStr}) no está cargado.`);
+        return;
+    }
+
+    if (isNaN(pesoKilos) || pesoKilos <= 0) {
+        mostrarAlerta("El ticket de balanza no contiene un peso válido.");
+        return;
+    }
+
+    agregarItemPorKilo(producto, pesoKilos);
+}
+
+function agregarItemPorKilo(producto, kilos) {
+    let existente = carrito.find(item => item.codigo === producto.codigo && item.esPorKilo);
+    
+    if (existente) {
+        existente.cantidad += kilos; 
+    } else {
+        carrito.push({
+            ...producto,
+            cantidad: kilos, // Almacena los kilos exactos
+            esPorKilo: true,
+            id: Date.now()
+        });
+    }
+    
+    renderCarrito();
+    mostrarAlerta(`Agregado: ${kilos.toFixed(3)} kg de ${producto.nombre}`);
 }
 
 function agregarAlCarritoDirecto(codigo) {
-    const producto = catalogo.find(p => p.codigo === codigo);
-    if (!producto) return;
+    const prod = catalogo.find(p => p.codigo === codigo);
+    if (!prod) return;
 
-    let existente = carrito.find(item => item.codigo === codigo);
+    let existente = carrito.find(item => item.codigo === codigo && !item.esPorKilo);
     if (existente) {
         existente.cantidad += 1;
     } else {
-        carrito.push({ ...producto, cantidad: 1, id: Date.now() });
-    }
-    renderCarrito();
-}
-
-function eliminarDelCarrito(id) {
-    carrito = carrito.filter(item => item.id !== id);
-    renderCarrito();
-}
-
-function actualizarMetodoPago() {
-    const radios = document.getElementsByName('btnradio_pago');
-    for (let r of radios) {
-        if (r.checked) metodoPagoActual = r.value;
+        carrito.push({ ...prod, cantidad: 1, esPorKilo: false, id: Date.now() });
     }
     renderCarrito();
 }
 
 function renderCarrito() {
-    const list = document.getElementById('cart-items');
-    let subtotal = 0;
-    let descuentoTotal = 0;
+    const tbody = document.getElementById('tabla-carrito');
+    tbody.innerHTML = '';
+    let totalPagar = 0;
 
     if (carrito.length === 0) {
-        list.innerHTML = `<li class="list-group-item text-center text-muted py-3 small">El carrito está vacío</li>`;
-    } else {
-        list.innerHTML = '';
-        carrito.forEach(item => {
-            let precioItem = item.precio * item.cantidad;
-            subtotal += precioItem;
-            
-            let descuentoItem = 0;
-            if (item.categoria === "Carnes" && (metodoPagoActual === "Efectivo" || metodoPagoActual === "Transferencia")) {
-                descuentoItem = precioItem * 0.10;
-                descuentoTotal += descuentoItem;
-            }
-
-            list.innerHTML += `
-                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-1">
-                    <div>
-                        <div class="fw-bold small text-dark">${item.nombre} ${item.categoria === 'Carnes' ? '<span class="badge bg-success" style="font-size: 8px;">Carnes</span>' : ''}</div>
-                        <small class="text-muted" style="font-size: 11px;">${item.cantidad} x $U ${item.precio}</small>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="text-dark fw-bold small">$U ${(precioItem - descuentoItem).toFixed(2)}</span>
-                        <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="eliminarDelCarrito(${item.id})"><i class="fas fa-times"></i></button>
-                    </div>
-                </li>`;
-        });
+        tbody.innerHTML = `<tr><td colspan="4" class="text-muted py-3">El ticket está vacío</td></tr>`;
+        document.getElementById('txt-total-pagar').innerText = "$U 0.00";
+        document.getElementById('txt-descuento').innerText = "$U 0.00";
+        return;
     }
 
-    let total = subtotal - descuentoTotal;
-    document.getElementById('cart-subtotal').textContent = `$U ${subtotal.toFixed(2)}`;
-    document.getElementById('cart-descuento-monto').textContent = `-$U ${descuentoTotal.toFixed(2)}`;
-    document.getElementById('cart-total').textContent = `$U ${total.toFixed(2)}`;
+    carrito.forEach(item => {
+        const subtotal = item.precio * item.cantidad;
+        totalPagar += subtotal;
+        
+        let cantidadTexto = item.esPorKilo ? `${item.cantidad.toFixed(3)} kg` : `${item.cantidad} un`;
+
+        tbody.innerHTML += `
+            <tr>
+                <td class="text-start ps-2">${item.nombre}</td>
+                <td>${cantidadTexto}</td>
+                <td class="fw-bold">$U ${subtotal.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-link text-danger p-0" onclick="eliminarItemCarrito(${item.id})"><i class="fas fa-times"></i></button>
+                </td>
+            </tr>
+        `;
+    });
+
+    document.getElementById('txt-total-pagar').innerText = `$U ${totalPagar.toFixed(2)}`;
 }
 
-function cobrarVenta() {
-    if (carrito.length === 0) return mostrarAlerta("El carrito está vacío.");
-    if (!cajeroActual) return mostrarAlerta("Debe iniciar turno primero.");
-
-    let subtotal = 0, descuentoTotal = 0;
-    let itemsVenta = [];
-    
-    carrito.forEach(item => {
-        let pItem = item.precio * item.cantidad;
-        subtotal += pItem;
-        let descItem = 0;
-        if (item.categoria === "Carnes" && (metodoPagoActual === "Efectivo" || metodoPagoActual === "Transferencia")) {
-            descItem = pItem * 0.10;
-            descuentoTotal += descItem;
-        }
-        itemsVenta.push({
-            codigo: item.codigo,
-            nombre: item.nombre,
-            categoria: item.categoria,
-            cantidad: item.cantidad,
-            precioUnitario: item.precio,
-            subtotal: pItem - descItem
-        });
-    });
-
-    const ahora = new Date();
-    const fechaIso = ahora.toISOString(); // Guardado avanzado con fecha ISO para filtrado preciso
-    const fechaHoraStr = ahora.toLocaleDateString() + ' ' + ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    ventas.push({
-        id: Date.now(),
-        fechaIso: fechaIso,
-        cajero: cajeroActual.nombre,
-        fechaHora: fechaHoraStr,
-        metodo: metodoPagoActual,
-        total: subtotal - descuentoTotal,
-        descuento: descuentoTotal,
-        items: itemsVenta
-    });
-
-    carrito = [];
-    guardarEnStorage();
+function eliminarItemCarrito(id) {
+    carrito = carrito.filter(item => item.id !== id);
     renderCarrito();
-    actualizarResumenTurno();
+}
+
+function vaciarCarrito() {
+    carrito = [];
+    renderCarrito();
+}
+
+// ==========================================
+// GESTIÓN DEL CATÁLOGO Y GRILLA
+// ==========================================
+function renderCatalogoGeneral(lista) {
+    const grilla = document.getElementById('grilla-catalogo');
+    if (!grilla) return;
+    grilla.innerHTML = '';
+
+    lista.forEach(p => {
+        grilla.innerHTML += `
+            <div class="col-4">
+                <button class="btn btn-outline-secondary w-100 p-2 text-start bg-white border shadow-sm" onclick="agregarAlCarritoDirecto('${p.codigo}')">
+                    <div class="fw-bold text-dark text-truncate" style="font-size: 11px;">${p.nombre}</div>
+                    <div class="text-success fw-bold" style="font-size: 10px;">$U ${p.precio.toFixed(2)}</div>
+                </button>
+            </div>
+        `;
+    });
+
+    renderizarTablaAdminProductos();
+}
+
+function filtrarCategoria(cat) {
+    if (cat === 'Todos') {
+        renderCatalogoGeneral(catalogo);
+    } else {
+        const filtrados = catalogo.filter(p => p.categoria === cat);
+        renderCatalogoGeneral(filtrados);
+    }
+}
+
+// ==========================================
+// COBRO Y TRANSACCIONES
+// ==========================================
+function cobrar(metodoPago) {
+    if (carrito.length === 0) {
+        mostrarAlerta("No hay artículos en el ticket actual.");
+        return;
+    }
+
+    let totalVenta = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+
+    const nuevaVenta = {
+        id: "T-" + Math.floor(1000 + Math.random() * 9000),
+        fecha: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        cajero: turnoActual ? turnoActual.cajero : "General",
+        metodo: metodoPago,
+        total: totalVenta,
+        items: [...carrito]
+    };
+
+    historialVentas.unshift(nuevaVenta);
+    localStorage.setItem('carniceria_historial', JSON.stringify(historialVentas));
+
+    if (turnoActual) {
+        if (metodoPago === 'Efectivo') turnoActual.ventasEfectivo += totalVenta;
+        if (metodoPago === 'Transferencia') turnoActual.ventasTransf += totalVenta;
+        localStorage.setItem('carniceria_turno', JSON.stringify(turnoActual));
+    }
+
+    vaciarCarrito();
+    renderHistorialVentas();
     mostrarAlerta("¡Venta cobrada con éxito!");
 }
 
-function abrirModalCompras() {
-    if (!cajeroActual) return mostrarAlerta("Debe iniciar turno primero.");
-    
-    const select = document.getElementById('select-proveedor-registrado');
-    select.innerHTML = proveedoresRegistrados.map(p => `<option value="${p}">${p}</option>`).join('');
-    if (proveedoresRegistrados.length > 0) {
-        document.getElementById('input-compra-proveedor').value = proveedoresRegistrados[0];
-    }
-    
-    document.getElementById('input-compra-monto').value = '';
-    modalCompras.show();
-}
+// ==========================================
+// HISTORIAL Y TURNOS
+// ==========================================
+function renderHistorialVentas() {
+    const tbody = document.getElementById('tabla-historial');
+    if (!tbody) return;
+    tbody.innerHTML = '';
 
-function seleccionarProveedorLista(nombre) {
-    document.getElementById('input-compra-proveedor').value = nombre;
-}
-
-function abrirModalCrearProveedor() {
-    modalCompras.hide();
-    document.getElementById('nuevo-proveedor-nombre').value = '';
-    modalCrearProveedor.show();
-}
-
-function guardarNuevoProveedor() {
-    const nombre = document.getElementById('nuevo-proveedor-nombre').value.trim();
-    if (!nombre) return mostrarAlerta("Ingrese el nombre del proveedor.");
-    if (proveedoresRegistrados.some(p => p.toLowerCase() === nombre.toLowerCase())) {
-        return mostrarAlerta("El proveedor ya se encuentra registrado.");
+    if (historialVentas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-muted py-3">No hay ventas registradas</td></tr>`;
+        return;
     }
 
-    proveedoresRegistrados.push(nombre);
-    guardarEnStorage();
-    modalCrearProveedor.hide();
-    mostrarAlerta(`Proveedor ${nombre} guardado con éxito.`);
-    abrirModalCompras();
-}
-
-function registrarCompraProveedor() {
-    const proveedor = document.getElementById('input-compra-proveedor').value.trim();
-    const monto = parseFloat(document.getElementById('input-compra-monto').value);
-    const pago = document.getElementById('select-compra-pago').value;
-
-    if (!proveedor || isNaN(monto) || monto <= 0) {
-        return mostrarAlerta("Seleccione un proveedor válido y un monto mayor a 0.");
-    }
-
-    const ahora = new Date();
-    compras.push({
-        id: Date.now(),
-        fechaIso: ahora.toISOString(),
-        fechaHora: ahora.toLocaleDateString() + ' ' + ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        proveedor,
-        monto,
-        pago
+    historialVentas.forEach(v => {
+        tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold">${v.id}</td>
+                <td>${v.fecha}</td>
+                <td>${v.cajero}</td>
+                <td><span class="badge bg-secondary">${v.metodo}</span></td>
+                <td class="fw-bold text-success">$U ${v.total.toFixed(2)}</td>
+                <td><button class="btn btn-outline-dark btn-sm py-0 px-1" onclick="verDetalleVenta('${v.id}')"><i class="fas fa-eye"></i></button></td>
+            </tr>
+        `;
     });
+}
 
-    guardarEnStorage();
-    modalCompras.hide();
-    actualizarResumenTurno();
-    mostrarAlerta(`Compra registrada a ${proveedor} por $U ${monto.toFixed(2)} (${pago}).`);
+function limpiarHistorial() {
+    historialVentas = [];
+    localStorage.removeItem('carniceria_historial');
+    renderHistorialVentas();
 }
 
 function abrirModalTurno() {
-    const select = document.getElementById('select-cajero-registrado');
-    select.innerHTML = cajerosRegistrados.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
-    if (cajerosRegistrados.length > 0) {
-        document.getElementById('input-cajero-nombre').value = cajerosRegistrados[0].nombre;
+    const modal = new bootstrap.Modal(document.getElementById('modalTurno'));
+    modal.show();
+}
+
+function iniciarTurnoCajero() {
+    const horario = document.getElementById('select-horario-turno').value;
+    const cajeroNombre = document.getElementById('input-cajero-nombre').value;
+    const pin = document.getElementById('input-cajero-pin').value;
+    const fondoInicial = parseFloat(document.getElementById('input-fondo-inicial').value) || 0;
+
+    const cajeroEncontrado = cajerosRegistrados.find(c => c.nombre === cajeroNombre && c.pin === pin);
+    if (!cajeroEncontrado) {
+        mostrarAlerta("PIN de cajero incorrecto o cajero no seleccionado.");
+        return;
     }
-    document.getElementById('input-fondo-inicial').value = '';
-    modalTurno.show();
+
+    turnoActual = {
+        horario,
+        cajero: cajeroNombre,
+        fondoInicial,
+        ventasEfectivo: 0,
+        ventasTransf: 0
+    };
+
+    localStorage.setItem('carniceria_turno', JSON.stringify(turnoActual));
+    actualizarInfoTurnoVisual();
+    bootstrap.Modal.getInstance(document.getElementById('modalTurno')).hide();
+    mostrarAlerta("¡Turno iniciado correctamente!");
 }
 
-function seleccionarCajeroLista(nombre) {
-    document.getElementById('input-cajero-nombre').value = nombre;
+function actualizarInfoTurnoVisual() {
+    const info = document.getElementById('info-turno-actual');
+    if (turnoActual) {
+        info.innerText = `Turno: ${turnoActual.cajero} (${turnoActual.horario})`;
+    } else {
+        info.innerText = "Turno: No iniciado";
+    }
 }
 
+function abrirModalCierreCaja() {
+    if (!turnoActual) {
+        mostrarAlerta("No hay un turno activo para cerrar.");
+        return;
+    }
+
+    document.getElementById('cierre-fondo-inicial').innerText = `$U ${turnoActual.fondoInicial.toFixed(2)}`;
+    document.getElementById('cierre-ventas-efe').innerText = `$U ${turnoActual.ventasEfectivo.toFixed(2)}`;
+    document.getElementById('cierre-ventas-trans').innerText = `$U ${turnoActual.ventasTransf.toFixed(2)}`;
+    
+    let totalEfectivoCaja = turnoActual.fondoInicial + turnoActual.ventasEfectivo;
+    document.getElementById('cierre-total-txt').innerText = `$U ${totalEfectivoCaja.toFixed(2)}`;
+
+    const modal = new bootstrap.Modal(document.getElementById('modalCierreCaja'));
+    modal.show();
+}
+
+function confirmarCierreCaja() {
+    turnoActual = null;
+    localStorage.removeItem('carniceria_turno');
+    actualizarInfoTurnoVisual();
+    bootstrap.Modal.getInstance(document.getElementById('modalCierreCaja')).hide();
+    mostrarAlerta("Caja cerrada correctamente.");
+}
+
+// ==========================================
+// ADMINISTRACIÓN DE CAJEROS Y PRODUCTOS
+// ==========================================
 function abrirModalCrearUsuario() {
-    modalTurno.hide();
-    document.getElementById('nuevo-cajero-nombre').value = '';
-    document.getElementById('nuevo-cajero-pin').value = '';
-    modalCrearUsuario.show();
+    const modal = new bootstrap.Modal(document.getElementById('modalCrearUsuario'));
+    modal.show();
 }
 
 function guardarNuevoCajero() {
     const nombre = document.getElementById('nuevo-cajero-nombre').value.trim();
     const pin = document.getElementById('nuevo-cajero-pin').value.trim();
 
-    if (!nombre || !pin) return mostrarAlerta("Complete el nombre y el PIN del nuevo cajero.");
-    if (cajerosRegistrados.some(c => c.nombre.toLowerCase() === nombre.toLowerCase())) {
-        return mostrarAlerta("Ya existe un cajero registrado con ese nombre.");
+    if (!nombre || !pin) {
+        mostrarAlerta("Complete todos los campos del cajero.");
+        return;
     }
 
     cajerosRegistrados.push({ nombre, pin });
-    guardarEnStorage();
-    modalCrearUsuario.hide();
-    mostrarAlerta(`Cajero ${nombre} registrado con éxito.`);
-    abrirModalTurno();
+    localStorage.setItem('carniceria_cajeros', JSON.stringify(cajerosRegistrados));
+    cargarSelectsCajeros();
+    bootstrap.Modal.getInstance(document.getElementById('modalCrearUsuario')).hide();
+    mostrarAlerta("Cajero registrado con éxito.");
 }
 
-function iniciarTurnoCajero() {
-    const horario = document.getElementById('select-horario-turno').value;
-    const nombre = document.getElementById('input-cajero-nombre').value;
-    const pin = document.getElementById('input-cajero-pin').value.trim();
-    const fondoInput = document.getElementById('input-fondo-inicial').value.trim();
-    const fondo = parseFloat(fondoInput);
-
-    const cajeroEncontrado = cajerosRegistrados.find(c => c.nombre === nombre && c.pin === pin);
-    if (!cajeroEncontrado) return mostrarAlerta("PIN incorrecto o cajero no válido.");
-    if (fondoInput === "" || isNaN(fondo) || fondo <= 0) {
-        return mostrarAlerta("Debe ingresar un fondo inicial válido (mayor a 0).");
-    }
-
-    cajeroActual = cajeroEncontrado;
-    horarioTurnoActual = horario;
-    fondoInicialCaja = fondo;
-    guardarEnStorage();
-
-    document.getElementById('label-cajero-actual').textContent = `Cajero: ${nombre}`;
-    modalTurno.hide();
-    actualizarResumenTurno();
-    mostrarAlerta(`Turno ${horario} iniciado con $U ${fondo.toFixed(2)} en caja.`);
+function cargarSelectsCajeros() {
+    const select = document.getElementById('select-cajero-registrado');
+    if (!select) return;
+    select.innerHTML = '<option value="">Seleccione Cajero...</option>';
+    cajerosRegistrados.forEach(c => {
+        select.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+    });
 }
 
-function actualizarResumenTurno() {
-    let tEfe = 0, tTra = 0, tDeb = 0, tDesc = 0;
-    ventas.forEach(v => {
-        if (v.metodo === 'Efectivo') tEfe += v.total;
-        if (v.metodo === 'Transferencia') tTra += v.total;
-        if (v.metodo === 'Debito') tDeb += v.total;
-        tDesc += v.descuento;
-    });
-
-    let comprasEfe = 0, comprasTrans = 0;
-    compras.forEach(c => {
-        if (c.pago === 'Efectivo') comprasEfe += c.monto;
-        if (c.pago === 'Transferencia') comprasTrans += c.monto;
-    });
-
-    let cajaFisicaEfectivo = fondoInicialCaja + tEfe - comprasEfe;
-
-    document.getElementById('label-horario-turno').textContent = horarioTurnoActual;
-    document.getElementById('contador-ventas-turno').textContent = `${ventas.length} Ventas Total`;
-    document.getElementById('resumen-efectivo').textContent = `$U ${tEfe.toFixed(2)}`;
-    document.getElementById('resumen-transf').textContent = `$U ${tTra.toFixed(2)}`;
-    document.getElementById('resumen-debito').textContent = `$U ${tDeb.toFixed(2)}`;
-    document.getElementById('resumen-compras-efe').textContent = `-$U ${comprasEfe.toFixed(2)}`;
-    document.getElementById('resumen-compras-trans').textContent = `-$U ${comprasTrans.toFixed(2)}`;
-    document.getElementById('resumen-descuentos').textContent = `$U ${tDesc.toFixed(2)}`;
-    document.getElementById('resumen-fondo-caja').textContent = `$U ${cajaFisicaEfectivo.toFixed(2)}`;
+function seleccionarCajeroLista(nombre) {
+    document.getElementById('input-cajero-nombre').value = nombre;
 }
 
-function abrirModalCierreCaja() {
-    if (!cajeroActual) return mostrarAlerta("Debe iniciar turno primero.");
-
-    let tEfe = 0, tTra = 0, tDeb = 0, tDesc = 0;
-    ventas.forEach(v => {
-        if (v.metodo === 'Efectivo') tEfe += v.total;
-        if (v.metodo === 'Transferencia') tTra += v.total;
-        if (v.metodo === 'Debito') tDeb += v.total;
-        tDesc += v.descuento;
-    });
-
-    let comprasEfe = 0;
-    compras.forEach(c => {
-        if (c.pago === 'Efectivo') comprasEfe += c.monto;
-    });
-
-    let cajaFisicaEfectivo = fondoInicialCaja + tEfe - comprasEfe;
-
-    document.getElementById('cierre-fondo-inicial').textContent = `$U ${fondoInicialCaja.toFixed(2)}`;
-    document.getElementById('cierre-ventas-efe').textContent = `$U ${tEfe.toFixed(2)}`;
-    document.getElementById('cierre-compras-efe').textContent = `-$U ${comprasEfe.toFixed(2)}`;
-    document.getElementById('cierre-ventas-trans').textContent = `$U ${tTra.toFixed(2)}`;
-    document.getElementById('cierre-ventas-deb').textContent = `$U ${tDeb.toFixed(2)}`;
-    document.getElementById('cierre-descuentos').textContent = `$U ${tDesc.toFixed(2)}`;
-    document.getElementById('cierre-total-txt').textContent = `$U ${cajaFisicaEfectivo.toFixed(2)}`;
-
-    modalCierre.show();
+function verificarAccesoAdminTab() {
+    const modal = new bootstrap.Modal(document.getElementById('modalAdmin'));
+    modal.show();
 }
 
-function confirmarCierreCaja() {
-    // Almacenar el registro del arqueo en el historial de cierres, sin borrar las ventas ni compras de por vida
-    let tEfe = 0;
-    ventas.forEach(v => { if (v.metodo === 'Efectivo') tEfe += v.total; });
-    let comprasEfe = 0;
-    compras.forEach(c => { if (c.pago === 'Efectivo') comprasEfe += c.monto; });
-    let cajaFisicaEfectivo = fondoInicialCaja + tEfe - comprasEfe;
-
-    cierresHistorial.push({
-        fechaHora: new Date().toLocaleString(),
-        fondoInicial: fondoInicialCaja,
-        ventasEfectivo: tEfe,
-        comprasEfectivo: comprasEfe,
-        totalCaja: cajaFisicaEfectivo,
-        cajero: cajeroActual ? cajeroActual.nombre : "Desconocido"
-    });
-
-    fondoInicialCaja = 0;
-    horarioTurnoActual = "Sin Turno";
-    cajeroActual = null;
-    guardarEnStorage();
-
-    document.getElementById('label-cajero-actual').textContent = "Cajero: Ninguno";
-    actualizarResumenTurno();
-    modalCierre.hide();
-    mostrarAlerta("Cierre guardado. El historial de ventas y compras permanece intacto.");
-}
-
-function verAdmin() { modalAdmin.show(); }
 function verificarAccesoAdmin() {
-    if (document.getElementById('input-admin-pass').value === "6272") {
-        modalAdmin.hide();
+    const pass = document.getElementById('input-admin-pass').value;
+    if (pass === "6272") {
+        bootstrap.Modal.getInstance(document.getElementById('modalAdmin')).hide();
         document.getElementById('input-admin-pass').value = '';
-        switchTab('dashboard');
+        renderizarTablaAdminProductos();
     } else {
-        mostrarAlerta("PIN incorrecto (PIN Administrador: 6272)");
+        mostrarAlerta("PIN de Administrador incorrecto.");
     }
 }
 
-function cambiarFiltroTemporal(tipo) {
-    filtroTemporalActual = tipo;
-    ['hoy', 'semana', 'mes', 'historico'].forEach(t => {
-        const btn = document.getElementById(`btn-filtro-${t}`);
-        if (btn) btn.classList.remove('active');
-    });
-    document.getElementById(`btn-filtro-${tipo}`).classList.add('active');
-    actualizarDashboardAdmin();
-}
-
-function filtrarPorTiempo(lista) {
-    if (filtroTemporalActual === 'historico') return lista;
-
-    const ahora = new Date();
-    return lista.filter(item => {
-        if (!item.fechaIso) return true;
-        const fechaItem = new Date(item.fechaIso);
-
-        if (filtroTemporalActual === 'hoy') {
-            return fechaItem.toDateString() === ahora.toDateString();
-        } else if (filtroTemporalActual === 'semana') {
-            const unDiaMs = 24 * 60 * 60 * 1000;
-            const diffDias = Math.abs((ahora - fechaItem) / unDiaMs);
-            return diffDias <= 7;
-        } else if (filtroTemporalActual === 'mes') {
-            return fechaItem.getMonth() === ahora.getMonth() && fechaItem.getFullYear() === ahora.getFullYear();
-        }
-        return true;
-    });
-}
-
-function actualizarDashboardAdmin() {
-    const ventasFiltradas = filtrarPorTiempo(ventas);
-    const comprasFiltradas = filtrarPorTiempo(compras);
-
-    let totalEfe = 0, totalDeb = 0, totalTra = 0;
-    ventasFiltradas.forEach(v => {
-        if (v.metodo === 'Efectivo') totalEfe += v.total;
-        if (v.metodo === 'Debito') totalDeb += v.total;
-        if (v.metodo === 'Transferencia') totalTra += v.total;
-    });
-
-    let totalGastos = 0;
-    comprasFiltradas.forEach(c => { totalGastos += c.monto; });
-
-    document.getElementById('admin-total-efe').textContent = `$U ${totalEfe.toFixed(2)}`;
-    document.getElementById('admin-total-deb').textContent = `$U ${totalDeb.toFixed(2)}`;
-    document.getElementById('admin-total-tra').textContent = `$U ${totalTra.toFixed(2)}`;
-    document.getElementById('admin-total-gastos').textContent = `$U ${totalGastos.toFixed(2)}`;
-
-    // Agrupar Kilos / Unidades y Cortes
-    let mapaKilos = {};
-    let mapaCortesMonto = {};
-    ventasFiltradas.forEach(v => {
-        v.items.forEach(i => {
-            if (!mapaKilos[i.codigo]) {
-                mapaKilos[i.codigo] = { codigo: i.codigo, nombre: i.nombre, categoria: i.categoria, cantidad: 0 };
-            }
-            mapaKilos[i.codigo].cantidad += i.cantidad;
-
-            if (!mapaCortesMonto[i.nombre]) {
-                mapaCortesMonto[i.nombre] = 0;
-            }
-            mapaCortesMonto[i.nombre] += i.subtotal;
-        });
-    });
-
-    // Renderizar Tabla Kilos
-    const tbodyKilos = document.getElementById('tabla-admin-kilos');
-    const listaKilosArr = Object.values(mapaKilos);
-    if (listaKilosArr.length === 0) {
-        tbodyKilos.innerHTML = `<tr><td colspan="4" class="text-muted py-2">No hay ventas registradas en este periodo</td></tr>`;
-    } else {
-        tbodyKilos.innerHTML = listaKilosArr.map(k => `
-            <tr>
-                <td><span class="badge bg-secondary">${k.codigo}</span></td>
-                <td class="text-start fw-bold">${k.nombre}</td>
-                <td>${k.categoria}</td>
-                <td class="text-success fw-bold">${k.cantidad} un. / kg</td>
-            </tr>
-        `).join('');
-    }
-
-    // Renderizar Tabla Transacciones Históricas
-    const tbodyTrans = document.getElementById('tabla-admin-transacciones');
-    if (ventasFiltradas.length === 0) {
-        tbodyTrans.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-2">Sin transacciones registradas</td></tr>`;
-    } else {
-        tbodyTrans.innerHTML = ventasFiltradas.slice().reverse().map(v => `
-            <tr class="border-bottom">
-                <td class="text-center text-muted" style="font-size: 11px;">${v.fechaHora}</td>
-                <td class="text-center fw-bold text-primary">${v.cajero}</td>
-                <td class="text-center"><span class="badge bg-dark">${v.metodo}</span></td>
-                <td>
-                    <ul class="list-unstyled m-0" style="font-size: 11px;">
-                        ${v.items.map(i => `<li>• ${i.cantidad}x ${i.nombre} ($U ${i.subtotal.toFixed(2)})</li>`).join('')}
-                    </ul>
-                </td>
-                <td class="text-end fw-bold text-success">$U ${v.total.toFixed(2)}</td>
-            </tr>
-        `).join('');
-    }
-
-    // Renderizar Tabla Cierres Históricos
-    const tbodyCierres = document.getElementById('tabla-admin-cierres');
-    if (cierresHistorial.length === 0) {
-        tbodyCierres.innerHTML = `<tr><td colspan="5" class="text-muted py-2">No hay cierres registrados aún</td></tr>`;
-    } else {
-        tbodyCierres.innerHTML = cierresHistorial.slice().reverse().map(c => `
-            <tr>
-                <td>${c.fechaHora} (${c.cajero})</td>
-                <td>$U ${c.fondoInicial.toFixed(2)}</td>
-                <td class="text-success">$U ${c.ventasEfectivo.toFixed(2)}</td>
-                <td class="text-danger">-$U ${c.comprasEfectivo.toFixed(2)}</td>
-                <td class="fw-bold">$U ${c.totalCaja.toFixed(2)}</td>
-            </tr>
-        `).join('');
-    }
-
-    renderTablaAdminProductos();
-    renderizarGraficas(totalEfe, totalTra, totalDeb, totalGastos, mapaCortesMonto, listaKilosArr);
-}
-
-function renderizarGraficas(tEfe, tTra, tDeb, tGastos, mapaCortesMonto, listaKilosArr) {
-    // Destruir instancias previas para evitar conflictos de canvas en Chart.js
-    if (chartVentasGastosInstancia) chartVentasGastosInstancia.destroy();
-    if (chartCortesInstancia) chartCortesInstancia.destroy();
-    if (chartKilosInstancia) chartKilosInstancia.destroy();
-
-    // GRÁFICA 1: Ventas por Método y Gastos
-    const ctx1 = document.getElementById('chartVentasGastos').getContext('2d');
-    chartVentasGastosInstancia = new Chart(ctx1, {
-        type: 'pie',
-        data: {
-            labels: ['Efectivo', 'Transferencia', 'Débito/Créd.', 'Gastos/Compras'],
-            datasets: [{
-                data: [tEfe, tTra, tDeb, tGastos],
-                backgroundColor: ['#198754', '#0d6efd', '#0dcaf0', '#dc3545']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
-        }
-    });
-
-    // GRÁFICA 2: Cortes más Vendidos (por importe)
-    const cortesLabels = Object.keys(mapaCortesMonto).slice(0, 5); // Top 5 cortes
-    const cortesData = Object.values(mapaCortesMonto).slice(0, 5);
-    const ctx2 = document.getElementById('chartCortes').getContext('2d');
-    chartCortesInstancia = new Chart(ctx2, {
-        type: 'bar',
-        data: {
-            labels: cortesLabels.length > 0 ? cortesLabels : ['Sin Datos'],
-            datasets: [{
-                label: 'Ingresos ($U)',
-                data: cortesData.length > 0 ? cortesData : [0],
-                backgroundColor: '#ffc107'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } }
-        }
-    });
-
-    // GRÁFICA 3: Cantidad de Kilos / Unidades
-    const topKilos = listaKilosArr.sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
-    const kilosLabels = topKilos.map(k => k.nombre);
-    const kilosData = topKilos.map(k => k.cantidad);
-    const ctx3 = document.getElementById('chartKilos').getContext('2d');
-    chartKilosInstancia = new Chart(ctx3, {
-        type: 'doughnut',
-        data: {
-            labels: kilosLabels.length > 0 ? kilosLabels : ['Sin Datos'],
-            datasets: [{
-                data: kilosData.length > 0 ? kilosData : [1],
-                backgroundColor: ['#6610f2', '#6f42c1', '#d63384', '#fd7e14', '#20c997']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }
-        }
-    });
-}
-
-function renderTablaAdminProductos() {
+function renderizarTablaAdminProductos() {
     const tbody = document.getElementById('tabla-admin-productos');
-    tbody.innerHTML = catalogo.map(p => `
-        <tr>
-            <td class="fw-bold">${p.codigo}</td>
-            <td class="text-start">${p.nombre}</td>
-            <td><span class="badge bg-secondary">${p.categoria}</span></td>
-            <td class="fw-bold text-success">$U ${p.precio}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary py-0 px-1 me-1" onclick="abrirModalEditarProducto('${p.codigo}')" title="Editar"><i class="fas fa-pen"></i></button>
-                <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="eliminarArticulo('${p.codigo}')" title="Eliminar"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    catalogo.forEach(p => {
+        tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold">${p.codigo}</td>
+                <td>${p.nombre}</td>
+                <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
+                <td class="fw-bold text-success">$U ${p.precio.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-outline-primary btn-sm py-0 px-1 me-1" onclick="abrirModalEditarProducto('${p.codigo}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="eliminarProducto('${p.codigo}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    });
 }
 
 function abrirModalNuevoProducto() {
+    document.getElementById('titulo-modal-producto').innerText = "Nuevo Artículo";
     document.getElementById('prod-editando-codigo').value = "";
     document.getElementById('prod-codigo').value = "";
     document.getElementById('prod-nombre').value = "";
-    document.getElementById('prod-categoria').value = "Carnes";
     document.getElementById('prod-precio').value = "";
-    document.getElementById('titulo-modal-producto').textContent = "Nuevo Artículo";
-    modalProducto.show();
+    const modal = new bootstrap.Modal(document.getElementById('modalProducto'));
+    modal.show();
 }
 
 function abrirModalEditarProducto(codigo) {
-    let p = catalogo.find(item => item.codigo === codigo);
-    if (!p) return;
+    const prod = catalogo.find(p => p.codigo === codigo);
+    if (!prod) return;
 
-    document.getElementById('prod-editando-codigo').value = p.codigo;
-    document.getElementById('prod-codigo').value = p.codigo;
-    document.getElementById('prod-nombre').value = p.nombre;
-    document.getElementById('prod-categoria').value = p.categoria;
-    document.getElementById('prod-precio').value = p.precio;
-    document.getElementById('titulo-modal-producto').textContent = "Editar Artículo";
-    modalProducto.show();
+    document.getElementById('titulo-modal-producto').innerText = "Editar Artículo";
+    document.getElementById('prod-editando-codigo').value = prod.codigo;
+    document.getElementById('prod-codigo').value = prod.codigo;
+    document.getElementById('prod-nombre').value = prod.nombre;
+    document.getElementById('prod-categoria').value = prod.categoria;
+    document.getElementById('prod-precio').value = prod.precio;
+
+    const modal = new bootstrap.Modal(document.getElementById('modalProducto'));
+    modal.show();
 }
 
 function guardarProductoAdmin() {
-    const codigoAntiguo = document.getElementById('prod-editando-codigo').value;
+    const codigoEdit = document.getElementById('prod-editando-codigo').value;
     const codigo = document.getElementById('prod-codigo').value.trim();
-    const nombre = document.getElementById('prod-nombre').value.trim();
+    const nombre = document.getElementById('prod-nombre').value.trim().toUpperCase();
     const categoria = document.getElementById('prod-categoria').value;
     const precio = parseFloat(document.getElementById('prod-precio').value);
 
     if (!codigo || !nombre || isNaN(precio)) {
-        return mostrarAlerta("Complete todos los campos correctamente.");
+        mostrarAlerta("Complete todos los campos correctamente.");
+        return;
     }
 
-    if (codigoAntiguo === "") {
-        let existente = catalogo.find(p => p.codigo === codigo);
-        if (existente) return mostrarAlerta("Ya existe un producto con ese código.");
-        catalogo.push({ codigo, nombre, categoria, precio });
-        mostrarAlerta("Artículo agregado con éxito.");
-    } else {
-        let p = catalogo.find(item => item.codigo === codigoAntiguo);
-        if (p) {
-            p.codigo = codigo;
-            p.nombre = nombre;
-            p.categoria = categoria;
-            p.precio = precio;
-            mostrarAlerta("Artículo actualizado con éxito.");
+    if (codigoEdit) {
+        let index = catalogo.findIndex(p => p.codigo === codigoEdit);
+        if (index !== -1) {
+            catalogo[index] = { codigo, nombre, categoria, precio };
         }
+    } else {
+        if (catalogo.some(p => p.codigo === codigo)) {
+            mostrarAlerta("Ya existe un producto con ese código.");
+            return;
+        }
+        catalogo.push({ codigo, nombre, categoria, precio });
     }
 
-    guardarEnStorage();
+    localStorage.setItem('carniceria_catalogo', JSON.stringify(catalogo));
     renderCatalogoGeneral(catalogo);
-    renderTablaAdminProductos();
-    modalProducto.hide();
+    bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
+    mostrarAlerta("Artículo guardado con éxito.");
 }
 
-function eliminarArticulo(codigo) {
-    catalogo = catalogo.filter(p => p.codigo !== codigo);
-    guardarEnStorage();
-    renderCatalogoGeneral(catalogo);
-    renderTablaAdminProductos();
+function eliminarProducto(codigo) {
+    if (confirm("¿Está seguro de eliminar este artículo del catálogo?")) {
+        catalogo = catalogo.filter(p => p.codigo !== codigo);
+        localStorage.setItem('carniceria_catalogo', JSON.stringify(catalogo));
+        renderCatalogoGeneral(catalogo);
+    }
+}
+
+// ==========================================
+// UTILIDADES GENERALES
+// ==========================================
+function mostrarAlerta(mensaje) {
+    document.getElementById('texto-alerta-personalizada').innerText = mensaje;
+    const modal = new bootstrap.Modal(document.getElementById('modalAlerta'));
+    modal.show();
 }
