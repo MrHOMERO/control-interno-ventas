@@ -63,7 +63,7 @@
                     <span id="resumen-transf">$U 0.00</span>
                 </div>
                 <div class="d-flex justify-content-between text-info fw-bold mb-1">
-                    <span><i class="fas fa-credit-card me-1"></i> Débito Ventas:</span>
+                    <span><i class="fas fa-credit-card me-1"></i> Débito / Tarjeta Ventas:</span>
                     <span id="resumen-debito">$U 0.00</span>
                 </div>
                 <div class="d-flex justify-content-between text-danger fw-bold mb-1">
@@ -251,16 +251,52 @@
         </div></div>
     </div>
 
-    <!-- Modal Cierre de Caja -->
+    <!-- Modal Cierre de Caja Detallado -->
     <div class="modal fade" id="modalCierreCaja" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content text-center">
-            <div class="modal-header bg-danger text-white py-2"><h6 class="modal-title fw-bold">Cierre de Caja</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body py-3">
-                <p class="small text-muted mb-1">Efectivo físico total esperado:</p>
-                <h3 id="cierre-total-txt" class="text-success fw-bold">$U 0.00</h3>
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header bg-danger text-white py-2">
+                <h6 class="modal-title fw-bold"><i class="fas fa-lock me-1"></i> Resumen de Cierre de Caja</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-footer py-1">
-                <button class="btn btn-danger btn-sm w-100 fw-bold" onclick="confirmarCierreCaja()">Confirmar Cierre</button>
+            <div class="modal-body small">
+                <div class="border-bottom pb-2 mb-2">
+                    <div class="d-flex justify-content-between text-muted mb-1">
+                        <span>Fondo Inicial en Caja:</span>
+                        <span id="cierre-fondo-inicial" class="fw-bold">$U 0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-success mb-1">
+                        <span>Total Ventas en Efectivo:</span>
+                        <span id="cierre-ventas-efe" class="fw-bold">$U 0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-danger mb-1">
+                        <span>Total Compras/Gastos en Efectivo:</span>
+                        <span id="cierre-compras-efe" class="fw-bold">-$U 0.00</span>
+                    </div>
+                </div>
+
+                <div class="border-bottom pb-2 mb-2">
+                    <div class="d-flex justify-content-between text-primary mb-1">
+                        <span>Total Ventas Transferencia:</span>
+                        <span id="cierre-ventas-trans" class="fw-bold">$U 0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-info mb-1">
+                        <span>Total Ventas Tarjeta / Débito (POS):</span>
+                        <span id="cierre-ventas-deb" class="fw-bold">$U 0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-warning text-dark mb-1">
+                        <span>Total Descuentos Aplicados:</span>
+                        <span id="cierre-descuentos" class="fw-bold">$U 0.00</span>
+                    </div>
+                </div>
+
+                <div class="bg-success bg-opacity-10 p-2 rounded border border-success text-center">
+                    <span class="text-muted d-block small fw-bold">TOTAL DEFINITIVO EFECTIVO FÍSICO EN CAJA:</span>
+                    <h3 id="cierre-total-txt" class="text-success fw-bold m-0">$U 0.00</h3>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-danger btn-sm fw-bold px-4" onclick="confirmarCierreCaja()">Confirmar Cierre y Resetear</button>
             </div>
         </div></div>
     </div>
