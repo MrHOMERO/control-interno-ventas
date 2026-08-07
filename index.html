@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniPOS Pro</title>
+    <title>MiniPOS Pro - Histórico y Gráficas</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js para las gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Estilos personalizados -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -72,7 +74,7 @@
                 </div>
                 <div class="d-flex justify-content-between text-danger fw-bold mb-1">
                     <span><i class="fas fa-shopping-bag me-1"></i> Compras Transferencia:</span>
-                    <span id="resumen-compras-trans">$U 0.00</span>
+                    <span id="resumen-compras-trans">-$U 0.00</span>
                 </div>
                 <div class="d-flex justify-content-between text-dark fw-bold mb-1 bg-warning bg-opacity-25 px-1 rounded">
                     <span>Total Descuentos Turno:</span>
@@ -108,7 +110,7 @@
                     <label class="btn btn-outline-primary btn-sm fw-bold py-1" style="font-size: 12px;" for="pago-transf"><i class="fas fa-exchange-alt me-1"></i> Transf.</label>
                     
                     <input type="radio" class="btn-check" name="btnradio_pago" id="pago-debito" value="Debito" autocomplete="off" onchange="actualizarMetodoPago()">
-                    <label class="btn btn-outline-info btn-sm fw-bold py-1" style="font-size: 12px;" for="pago-debito"><i class="fas fa-credit-card me-1"></i> Débito</label>
+                    <label class="btn btn-outline-info btn-sm fw-bold py-1" style="font-size: 12px;" for="pago-debito"><i class="fas fa-credit-card me-1"></i> Débito/Créd.</label>
                 </div>
                 <div class="text-success text-center mb-2" style="font-size: 10px;" id="aviso-descuento-txt">Aplica descuento real solo en Carnes (Efectivo/Transferencia).</div>
                 
@@ -133,30 +135,46 @@
     </div>
 
     <!-- ================= VISTA DASHBOARD / ADMIN ================= -->
-    <div id="view-dashboard" class="container py-3" style="max-width: 900px; display: none;">
+    <div id="view-dashboard" class="container py-3" style="max-width: 950px; display: none;">
         <header class="bg-dark text-white px-3 py-2 rounded-2 d-flex justify-content-between align-items-center mb-3">
-            <h5 class="m-0 fw-bold"><i class="fas fa-user-shield me-2"></i>Panel de Administración</h5>
+            <h5 class="m-0 fw-bold"><i class="fas fa-user-shield me-2"></i>Panel de Administración (Histórico Permanente)</h5>
             <button class="btn btn-outline-light btn-sm fw-bold" onclick="switchTab('pos')"><i class="fas fa-arrow-left me-1"></i> Volver a Caja</button>
         </header>
+
+        <!-- Barra de Filtro Temporal -->
+        <div class="card shadow-sm border-0 mb-3 bg-white">
+            <div class="card-body p-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-bold small text-muted"><i class="fas fa-filter me-1"></i> Filtrar Historial por Periodo:</span>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-dark fw-bold active" id="btn-filtro-hoy" onclick="cambiarFiltroTemporal('hoy')">Hoy</button>
+                    <button type="button" class="btn btn-outline-dark fw-bold" id="btn-filtro-semana" onclick="cambiarFiltroTemporal('semana')">Esta Semana</button>
+                    <button type="button" class="btn btn-outline-dark fw-bold" id="btn-filtro-mes" onclick="cambiarFiltroTemporal('mes')">Este Mes</button>
+                    <button type="button" class="btn btn-outline-dark fw-bold" id="btn-filtro-historico" onclick="cambiarFiltroTemporal('historico')">Histórico Total</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Pestañas de Admin -->
         <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active fw-bold small" id="tab-stats" data-bs-toggle="tab" data-bs-target="#pane-stats" type="button" role="tab">Estadísticas y Ventas</button>
+                <button class="nav-link active fw-bold small" id="tab-stats" data-bs-toggle="tab" data-bs-target="#pane-stats" type="button" role="tab"><i class="fas fa-chart-pie me-1"></i> Estadísticas y Gráficas</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link fw-bold small" id="tab-productos" data-bs-toggle="tab" data-bs-target="#pane-productos" type="button" role="tab">Catálogo de Productos</button>
+                <button class="nav-link fw-bold small" id="tab-transacciones" data-bs-toggle="tab" data-bs-target="#pane-transacciones" type="button" role="tab"><i class="fas fa-list me-1"></i> Transacciones y Cierres</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold small" id="tab-productos" data-bs-toggle="tab" data-bs-target="#pane-productos" type="button" role="tab"><i class="fas boxes me-1"></i> Catálogo de Productos</button>
             </li>
         </ul>
 
         <div class="tab-content" id="adminTabContent">
-            <!-- PESTAÑA 1: ESTADÍSTICAS Y TRANSACCIONES -->
+            <!-- PESTAÑA 1: ESTADÍSTICAS Y GRÁFICAS -->
             <div class="tab-pane fade show active" id="pane-stats" role="tabpanel">
                 <!-- Tarjetas de Resumen General -->
                 <div class="row g-2 mb-3">
                     <div class="col-md-3">
                         <div class="card p-2 border-0 shadow-sm bg-success text-white text-center">
-                            <span class="small">Total Efectivo</span>
+                            <span class="small">Total Efectivo Ventas</span>
                             <h5 id="admin-total-efe" class="fw-bold m-0">$U 0.00</h5>
                         </div>
                     </div>
@@ -173,16 +191,47 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card p-2 border-0 shadow-sm bg-dark text-white text-center">
-                            <span class="small">Transacciones Totales</span>
-                            <h5 id="admin-total-transacciones" class="fw-bold m-0">0</h5>
+                        <div class="card p-2 border-0 shadow-sm bg-danger text-white text-center">
+                            <span class="small">Total Gastos / Compras</span>
+                            <h5 id="admin-total-gastos" class="fw-bold m-0">$U 0.00</h5>
                         </div>
                     </div>
                 </div>
 
-                <!-- Desglose de Kilos / Unidades Vendidas por Corte -->
+                <!-- SECCIÓN DE LAS 3 GRÁFICAS REQUERIDAS -->
+                <div class="row g-3 mb-3">
+                    <!-- Gráfica 1: Ventas por Método y Gastos -->
+                    <div class="col-md-4">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-white py-2 fw-bold text-center small"><i class="fas fa-wallet me-1"></i> 1. Ventas y Gastos</div>
+                            <div class="card-body d-flex align-items-center justify-content-center p-2" style="height: 250px;">
+                                <canvas id="chartVentasGastos"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Gráfica 2: Cortes más Vendidos (Importe o Popularidad) -->
+                    <div class="col-md-4">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-white py-2 fw-bold text-center small"><i class="fas fa-drumstick-bite me-1"></i> 2. Cortes Más Vendidos</div>
+                            <div class="card-body d-flex align-items-center justify-content-center p-2" style="height: 250px;">
+                                <canvas id="chartCortes"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Gráfica 3: Cantidad de Kilos / Unidades -->
+                    <div class="col-md-4">
+                        <div class="card shadow-sm border-0 h-100">
+                            <div class="card-header bg-white py-2 fw-bold text-center small"><i class="fas fa-weight-hanging me-1"></i> 3. Cantidad de Kilos / Unidades</div>
+                            <div class="card-body d-flex align-items-center justify-content-center p-2" style="height: 250px;">
+                                <canvas id="chartKilos"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Kilos Vendidos Detallada -->
                 <div class="card shadow-sm border-0 mb-3">
-                    <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-weight-hanging me-1"></i> Kilos / Cantidades Vendidas por Corte o Producto</div>
+                    <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-weight-hanging me-1"></i> Desglose de Kilos / Unidades Vendidas por Corte</div>
                     <div class="card-body p-0">
                         <div class="table-responsive m-0" style="max-height: 200px;">
                             <table class="table table-sm table-striped align-middle small text-center m-0">
@@ -190,18 +239,21 @@
                                     <tr><th>Código</th><th>Producto</th><th>Categoría</th><th>Cantidad Vendida</th></tr>
                                 </thead>
                                 <tbody id="tabla-admin-kilos">
-                                    <tr><td colspan="4" class="text-muted py-2">No hay ventas registradas aún</td></tr>
+                                    <tr><td colspan="4" class="text-muted py-2">No hay ventas registradas en este periodo</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
+            </div>
 
+            <!-- PESTAÑA 2: TRANSACCIONES Y CIERRES -->
+            <div class="tab-pane fade" id="pane-transacciones" role="tabpanel">
                 <!-- Historial de Transacciones Detalladas -->
                 <div class="card shadow-sm border-0 mb-3">
-                    <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-history me-1"></i> Registro de Transacciones por Cajero</div>
+                    <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-history me-1"></i> Registro Histórico de Transacciones</div>
                     <div class="card-body p-0">
-                        <div class="table-responsive m-0" style="max-height: 250px;">
+                        <div class="table-responsive m-0" style="max-height: 300px;">
                             <table class="table table-sm table-hover align-middle small m-0">
                                 <thead class="table-light sticky-top text-center">
                                     <tr><th>Fecha / Hora</th><th>Cajero</th><th>Método</th><th>Detalle Productos</th><th>Total</th></tr>
@@ -213,9 +265,26 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Historial de Cierres de Caja Guardados -->
+                <div class="card shadow-sm border-0 mb-3">
+                    <div class="card-header bg-white py-2 fw-bold small"><i class="fas fa-lock me-1"></i> Historial de Arqueos y Cierres de Turno</div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive m-0" style="max-height: 200px;">
+                            <table class="table table-sm table-striped align-middle small text-center m-0">
+                                <thead class="table-light sticky-top">
+                                    <tr><th>Fecha Cierre</th><th>Fondo Inicial</th><th>Ventas Efe.</th><th>Gastos Efe.</th><th>Total Físico Caja</th></tr>
+                                </thead>
+                                <tbody id="tabla-admin-cierres">
+                                    <tr><td colspan="5" class="text-muted py-2">No hay cierres registrados aún</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- PESTAÑA 2: MODIFICAR CATÁLOGO -->
+            <!-- PESTAÑA 3: MODIFICAR CATÁLOGO -->
             <div class="tab-pane fade" id="pane-productos" role="tabpanel">
                 <div class="card shadow-sm border-0 mb-3">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
@@ -332,7 +401,7 @@
     <div class="modal fade" id="modalCierreCaja" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
             <div class="modal-header bg-danger text-white py-2">
-                <h6 class="modal-title fw-bold"><i class="fas fa-lock me-1"></i> Resumen de Cierre de Caja</h6>
+                <h6 class="modal-title fw-bold"><i class="fas fa-lock me-1"></i> Resumen de Cierre de Caja (Turno)</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body small">
@@ -342,26 +411,26 @@
                         <span id="cierre-fondo-inicial" class="fw-bold">$U 0.00</span>
                     </div>
                     <div class="d-flex justify-content-between text-success mb-1">
-                        <span>Total Ventas en Efectivo:</span>
+                        <span>Total Ventas en Efectivo (Turno):</span>
                         <span id="cierre-ventas-efe" class="fw-bold">$U 0.00</span>
                     </div>
                     <div class="d-flex justify-content-between text-danger mb-1">
-                        <span>Total Compras/Gastos en Efectivo:</span>
+                        <span>Total Compras/Gastos en Efectivo (Turno):</span>
                         <span id="cierre-compras-efe" class="fw-bold">-$U 0.00</span>
                     </div>
                 </div>
 
                 <div class="border-bottom pb-2 mb-2">
                     <div class="d-flex justify-content-between text-primary mb-1">
-                        <span>Total Ventas Transferencia:</span>
+                        <span>Total Ventas Transferencia (Turno):</span>
                         <span id="cierre-ventas-trans" class="fw-bold">$U 0.00</span>
                     </div>
                     <div class="d-flex justify-content-between text-info mb-1">
-                        <span>Total Ventas Tarjeta / Débito (POS):</span>
+                        <span>Total Ventas Tarjeta / Débito (Turno):</span>
                         <span id="cierre-ventas-deb" class="fw-bold">$U 0.00</span>
                     </div>
                     <div class="d-flex justify-content-between text-warning text-dark mb-1">
-                        <span>Total Descuentos Aplicados:</span>
+                        <span>Total Descuentos Aplicados (Turno):</span>
                         <span id="cierre-descuentos" class="fw-bold">$U 0.00</span>
                     </div>
                 </div>
@@ -373,7 +442,7 @@
             </div>
             <div class="modal-footer py-2">
                 <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-danger btn-sm fw-bold px-4" onclick="confirmarCierreCaja()">Confirmar Cierre y Resetear</button>
+                <button class="btn btn-danger btn-sm fw-bold px-4" onclick="confirmarCierreCaja()">Confirmar Cierre (Historial Permanece)</button>
             </div>
         </div></div>
     </div>
@@ -438,4 +507,4 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
 </body>
-                                                                   </html>
+                                                                     </html>
