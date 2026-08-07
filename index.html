@@ -145,7 +145,7 @@
                 <button class="nav-link active fw-bold small" id="tab-stats" data-bs-toggle="tab" data-bs-target="#pane-stats" type="button" role="tab">Estadísticas y Ventas</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link fw-bold small" id="tab-productos" data-bs-toggle="tab" data-bs-target="#pane-productos" type="button" role="tab">Modificar Catálogo (200+)</button>
+                <button class="nav-link fw-bold small" id="tab-productos" data-bs-toggle="tab" data-bs-target="#pane-productos" type="button" role="tab">Catálogo de Productos</button>
             </li>
         </ul>
 
@@ -219,14 +219,14 @@
             <div class="tab-pane fade" id="pane-productos" role="tabpanel">
                 <div class="card shadow-sm border-0 mb-3">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
-                        <span class="fw-bold small">Modificar Nombres, Categorías y Precios del Catálogo</span>
-                        <button class="btn btn-danger btn-sm fw-bold" onclick="abrirModalNuevoProducto()"><i class="fas fa-plus me-1"></i> Nuevo Artículo</button>
+                        <span class="fw-bold small">Gestión Completa del Catálogo</span>
+                        <button class="btn btn-danger btn-sm fw-bold" onclick="abrirModalNuevoProducto()"><i class="fas fa-plus me-1"></i> Agregar Producto</button>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive m-0" style="max-height: 450px;">
                             <table class="table table-sm table-hover align-middle small text-center m-0">
                                 <thead class="table-light sticky-top">
-                                    <tr><th>Cód</th><th>Nombre</th><th>Categoría</th><th>Precio ($U)</th><th>Acción</th></tr>
+                                    <tr><th>Cód</th><th>Nombre</th><th>Categoría</th><th>Precio ($U)</th><th>Acciones</th></tr>
                                 </thead>
                                 <tbody id="tabla-admin-productos"></tbody>
                             </table>
@@ -438,4 +438,4 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
 </body>
-                                                                                </html>
+                                                                   </html>
