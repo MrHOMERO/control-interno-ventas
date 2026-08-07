@@ -1,28 +1,32 @@
-let catalogo = [];
-for (let i = 1; i <= 200; i++) {
-    catalogo.push({
-        codigo: i.toString(),
-        nombre: `Corte de Carnicería Especial ${i}`,
-        categoria: "Carnes",
-        precio: parseFloat((250 + (i * 0.5)).toFixed(2))
-    });
+let catalogo = JSON.parse(localStorage.getItem('minipos_catalogo')) || [];
+if (catalogo.length === 0) {
+    for (let i = 1; i <= 200; i++) {
+        catalogo.push({
+            codigo: i.toString(),
+            nombre: `Corte de Carnicería Especial ${i}`,
+            categoria: "Carnes",
+            precio: parseFloat((250 + (i * 0.5)).toFixed(2))
+        });
+    }
+    catalogo.push(
+        { codigo: "501", nombre: "Coca Cola 2L", categoria: "Bebidas", precio: 130 },
+        { codigo: "601", nombre: "Pan Flauta 1Kg", categoria: "Almacén", precio: 90 }
+    );
+    localStorage.setItem('minipos_catalogo', JSON.stringify(catalogo));
 }
-catalogo.push(
-    { codigo: "501", nombre: "Coca Cola 2L", categoria: "Bebidas", precio: 130 },
-    { codigo: "601", nombre: "Pan Flauta 1Kg", categoria: "Almacén", precio: 90 }
-);
 
 let carrito = [];
-let ventas = [];
-let compras = [];
-let proveedoresRegistrados = ["Frigorífico Modelo", "Distribuidora Carnes del Este", "Bebidas Uruguay S.A."];
-let cajerosRegistrados = [
+let ventas = JSON.parse(localStorage.getItem('minipos_ventas')) || [];
+let compras = JSON.parse(localStorage.getItem('minipos_compras')) || [];
+let proveedoresRegistrados = JSON.parse(localStorage.getItem('minipos_proveedores')) || ["Frigorífico Modelo", "Distribuidora Carnes del Este", "Bebidas Uruguay S.A."];
+let cajerosRegistrados = JSON.parse(localStorage.getItem('minipos_cajeros')) || [
     { nombre: "Admin", pin: "6272" },
     { nombre: "Juan Pérez", pin: "1111" }
 ];
-let cajeroActual = null;
-let horarioTurnoActual = "Sin Turno";
-let fondoInicialCaja = 0;
+
+let cajeroActual = JSON.parse(localStorage.getItem('minipos_cajeroActual')) || null;
+let horarioTurnoActual = localStorage.getItem('minipos_horarioTurno') || "Sin Turno";
+let fondoInicialCaja = parseFloat(localStorage.getItem('minipos_fondoInicial')) || 0;
 let metodoPagoActual = "Efectivo";
 
 let modalTurno, modalCrearUsuario, modalCompras, modalCrearProveedor, modalCierre, modalAdmin, modalProducto, modalAlerta;
@@ -37,11 +41,26 @@ document.addEventListener("DOMContentLoaded", () => {
     modalProducto = new bootstrap.Modal(document.getElementById('modalProducto'));
     modalAlerta = new bootstrap.Modal(document.getElementById('modalAlerta'));
 
+    if (cajeroActual) {
+        document.getElementById('label-cajero-actual').textContent = `Cajero: ${cajeroActual.nombre}`;
+    }
+
     renderCatalogoGeneral(catalogo);
     actualizarMetodoPago();
     renderCarrito();
     actualizarResumenTurno();
 });
+
+function guardarEnStorage() {
+    localStorage.setItem('minipos_catalogo', JSON.stringify(catalogo));
+    localStorage.setItem('minipos_ventas', JSON.stringify(ventas));
+    localStorage.setItem('minipos_compras', JSON.stringify(compras));
+    localStorage.setItem('minipos_proveedores', JSON.stringify(proveedoresRegistrados));
+    localStorage.setItem('minipos_cajeros', JSON.stringify(cajerosRegistrados));
+    localStorage.setItem('minipos_cajeroActual', JSON.stringify(cajeroActual));
+    localStorage.setItem('minipos_horarioTurno', horarioTurnoActual);
+    localStorage.setItem('minipos_fondoInicial', fondoInicialCaja);
+}
 
 function switchTab(tab) {
     document.getElementById('view-pos').style.display = tab === 'pos' ? 'block' : 'none';
@@ -202,12 +221,12 @@ function cobrarVenta() {
     });
 
     carrito = [];
+    guardarEnStorage();
     renderCarrito();
     actualizarResumenTurno();
     mostrarAlerta("¡Venta cobrada con éxito!");
 }
 
-// Gestión de Compras y Proveedores Registrados
 function abrirModalCompras() {
     if (!cajeroActual) return mostrarAlerta("Debe iniciar turno primero.");
     
@@ -233,14 +252,13 @@ function abrirModalCrearProveedor() {
 
 function guardarNuevoProveedor() {
     const nombre = document.getElementById('nuevo-proveedor-nombre').value.trim();
-    if (!nombre) {
-        return mostrarAlerta("Ingrese el nombre del proveedor.");
-    }
+    if (!nombre) return mostrarAlerta("Ingrese el nombre del proveedor.");
     if (proveedoresRegistrados.some(p => p.toLowerCase() === nombre.toLowerCase())) {
         return mostrarAlerta("El proveedor ya se encuentra registrado.");
     }
 
     proveedoresRegistrados.push(nombre);
+    guardarEnStorage();
     modalCrearProveedor.hide();
     mostrarAlerta(`Proveedor ${nombre} guardado con éxito.`);
     abrirModalCompras();
@@ -256,12 +274,12 @@ function registrarCompraProveedor() {
     }
 
     compras.push({ proveedor, monto, pago });
+    guardarEnStorage();
     modalCompras.hide();
     actualizarResumenTurno();
     mostrarAlerta(`Compra registrada a ${proveedor} por $U ${monto.toFixed(2)} (${pago}).`);
 }
 
-// Turnos y Registro de Cajeros Nuevos
 function abrirModalTurno() {
     const select = document.getElementById('select-cajero-registrado');
     select.innerHTML = cajerosRegistrados.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
@@ -287,15 +305,13 @@ function guardarNuevoCajero() {
     const nombre = document.getElementById('nuevo-cajero-nombre').value.trim();
     const pin = document.getElementById('nuevo-cajero-pin').value.trim();
 
-    if (!nombre || !pin) {
-        return mostrarAlerta("Complete el nombre y el PIN del nuevo cajero.");
-    }
-
+    if (!nombre || !pin) return mostrarAlerta("Complete el nombre y el PIN del nuevo cajero.");
     if (cajerosRegistrados.some(c => c.nombre.toLowerCase() === nombre.toLowerCase())) {
         return mostrarAlerta("Ya existe un cajero registrado con ese nombre.");
     }
 
     cajerosRegistrados.push({ nombre, pin });
+    guardarEnStorage();
     modalCrearUsuario.hide();
     mostrarAlerta(`Cajero ${nombre} registrado con éxito.`);
     abrirModalTurno();
@@ -309,18 +325,16 @@ function iniciarTurnoCajero() {
     const fondo = parseFloat(fondoInput);
 
     const cajeroEncontrado = cajerosRegistrados.find(c => c.nombre === nombre && c.pin === pin);
-
-    if (!cajeroEncontrado) {
-        return mostrarAlerta("PIN incorrecto o cajero no válido.");
-    }
-
+    if (!cajeroEncontrado) return mostrarAlerta("PIN incorrecto o cajero no válido.");
     if (fondoInput === "" || isNaN(fondo) || fondo <= 0) {
-        return mostrarAlerta("Debe ingresar un monto específico y válido para el fondo inicial de caja (mayor a 0).");
+        return mostrarAlerta("Debe ingresar un fondo inicial válido (mayor a 0).");
     }
 
     cajeroActual = cajeroEncontrado;
     horarioTurnoActual = horario;
     fondoInicialCaja = fondo;
+    guardarEnStorage();
+
     document.getElementById('label-cajero-actual').textContent = `Cajero: ${nombre}`;
     modalTurno.hide();
     actualizarResumenTurno();
@@ -390,13 +404,14 @@ function confirmarCierreCaja() {
     fondoInicialCaja = 0;
     horarioTurnoActual = "Sin Turno";
     cajeroActual = null;
+    guardarEnStorage();
+
     document.getElementById('label-cajero-actual').textContent = "Cajero: Ninguno";
     actualizarResumenTurno();
     modalCierre.hide();
     mostrarAlerta("Caja cerrada y reseteada para el próximo turno.");
 }
 
-// Panel Administrador con PIN 6272
 function verAdmin() { modalAdmin.show(); }
 function verificarAccesoAdmin() {
     if (document.getElementById('input-admin-pass').value === "6272") {
@@ -421,7 +436,6 @@ function actualizarDashboardAdmin() {
     document.getElementById('admin-total-tra').textContent = `$U ${totalTra.toFixed(2)}`;
     document.getElementById('admin-total-transacciones').textContent = ventas.length;
 
-    // Calcular cantidades vendidas por cada producto
     let mapaKilos = {};
     ventas.forEach(v => {
         v.items.forEach(i => {
@@ -447,7 +461,6 @@ function actualizarDashboardAdmin() {
         `).join('');
     }
 
-    // Renderizar Transacciones detalladas
     const tbodyTrans = document.getElementById('tabla-admin-transacciones');
     if (ventas.length === 0) {
         tbodyTrans.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-2">Sin transacciones registradas</td></tr>`;
@@ -475,44 +488,42 @@ function renderTablaAdminProductos() {
     tbody.innerHTML = catalogo.map(p => `
         <tr>
             <td class="fw-bold">${p.codigo}</td>
-            <td class="text-start"><input type="text" class="form-control form-control-sm" value="${p.nombre}" id="input-nombre-${p.codigo}" onchange="modificarProductoDirecto('${p.codigo}', 'nombre', this.value)"></td>
+            <td class="text-start">${p.nombre}</td>
+            <td><span class="badge bg-secondary">${p.categoria}</span></td>
+            <td class="fw-bold text-success">$U ${p.precio}</td>
             <td>
-                <select class="form-select form-select-sm" id="input-cat-${p.codigo}" onchange="modificarProductoDirecto('${p.codigo}', 'categoria', this.value)">
-                    <option value="Carnes" ${p.categoria === 'Carnes' ? 'selected' : ''}>Carnes</option>
-                    <option value="Bebidas" ${p.categoria === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
-                    <option value="Almacén" ${p.categoria === 'Almacén' ? 'selected' : ''}>Almacén</option>
-                </select>
+                <button class="btn btn-sm btn-outline-primary py-0 px-1 me-1" onclick="abrirModalEditarProducto('${p.codigo}')" title="Editar"><i class="fas fa-pen"></i></button>
+                <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="eliminarArticulo('${p.codigo}')" title="Eliminar"><i class="fas fa-trash"></i></button>
             </td>
-            <td><input type="number" class="form-control form-control-sm" value="${p.precio}" step="0.01" id="input-precio-${p.codigo}" onchange="modificarProductoDirecto('${p.codigo}', 'precio', this.value)"></td>
-            <td><button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="eliminarArticulo('${p.codigo}')"><i class="fas fa-trash"></i></button></td>
         </tr>
     `).join('');
-}
-
-function modificarProductoDirecto(codigo, campo, valor) {
-    let p = catalogo.find(item => item.codigo === codigo);
-    if (p) {
-        if (campo === 'precio') {
-            p.precio = parseFloat(valor) || 0;
-        } else if (campo === 'nombre') {
-            p.nombre = valor.trim();
-        } else if (campo === 'categoria') {
-            p.categoria = valor;
-        }
-        renderCatalogoGeneral(catalogo);
-    }
 }
 
 function abrirModalNuevoProducto() {
     document.getElementById('prod-editando-codigo').value = "";
     document.getElementById('prod-codigo').value = "";
     document.getElementById('prod-nombre').value = "";
+    document.getElementById('prod-categoria').value = "Carnes";
     document.getElementById('prod-precio').value = "";
     document.getElementById('titulo-modal-producto').textContent = "Nuevo Artículo";
     modalProducto.show();
 }
 
+function abrirModalEditarProducto(codigo) {
+    let p = catalogo.find(item => item.codigo === codigo);
+    if (!p) return;
+
+    document.getElementById('prod-editando-codigo').value = p.codigo;
+    document.getElementById('prod-codigo').value = p.codigo;
+    document.getElementById('prod-nombre').value = p.nombre;
+    document.getElementById('prod-categoria').value = p.categoria;
+    document.getElementById('prod-precio').value = p.precio;
+    document.getElementById('titulo-modal-producto').textContent = "Editar Artículo";
+    modalProducto.show();
+}
+
 function guardarProductoAdmin() {
+    const codigoAntiguo = document.getElementById('prod-editando-codigo').value;
     const codigo = document.getElementById('prod-codigo').value.trim();
     const nombre = document.getElementById('prod-nombre').value.trim();
     const categoria = document.getElementById('prod-categoria').value;
@@ -522,17 +533,23 @@ function guardarProductoAdmin() {
         return mostrarAlerta("Complete todos los campos correctamente.");
     }
 
-    let existente = catalogo.find(p => p.codigo === codigo);
-    if (existente) {
-        existente.nombre = nombre;
-        existing.categoria = categoria;
-        existente.precio = precio;
-        mostrarAlerta("Artículo actualizado con éxito.");
-    } else {
+    if (codigoAntiguo === "") {
+        let existente = catalogo.find(p => p.codigo === codigo);
+        if (existente) return mostrarAlerta("Ya existe un producto con ese código.");
         catalogo.push({ codigo, nombre, categoria, precio });
         mostrarAlerta("Artículo agregado con éxito.");
+    } else {
+        let p = catalogo.find(item => item.codigo === codigoAntiguo);
+        if (p) {
+            p.codigo = codigo;
+            p.nombre = nombre;
+            p.categoria = categoria;
+            p.precio = precio;
+            mostrarAlerta("Artículo actualizado con éxito.");
+        }
     }
 
+    guardarEnStorage();
     renderCatalogoGeneral(catalogo);
     renderTablaAdminProductos();
     modalProducto.hide();
@@ -540,6 +557,7 @@ function guardarProductoAdmin() {
 
 function eliminarArticulo(codigo) {
     catalogo = catalogo.filter(p => p.codigo !== codigo);
+    guardarEnStorage();
     renderCatalogoGeneral(catalogo);
     renderTablaAdminProductos();
 }
