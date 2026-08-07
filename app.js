@@ -17,7 +17,7 @@ let ventas = [];
 let compras = [];
 let proveedoresRegistrados = ["Frigorífico Modelo", "Distribuidora Carnes del Este", "Bebidas Uruguay S.A."];
 let cajerosRegistrados = [
-    { nombre: "Admin", pin: "1234" },
+    { nombre: "Admin", pin: "6272" },
     { nombre: "Juan Pérez", pin: "1111" }
 ];
 let cajeroActual = null;
@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function switchTab(tab) {
     document.getElementById('view-pos').style.display = tab === 'pos' ? 'block' : 'none';
     document.getElementById('view-dashboard').style.display = tab === 'pos' ? 'none' : 'block';
-    if (tab === 'dashboard') renderTablaAdminProductos();
+    if (tab === 'dashboard') actualizarDashboardAdmin();
 }
 
 function mostrarAlerta(msg) {
@@ -169,18 +169,36 @@ function cobrarVenta() {
     if (!cajeroActual) return mostrarAlerta("Debe iniciar turno primero.");
 
     let subtotal = 0, descuentoTotal = 0;
+    let itemsVenta = [];
+    
     carrito.forEach(item => {
         let pItem = item.precio * item.cantidad;
         subtotal += pItem;
+        let descItem = 0;
         if (item.categoria === "Carnes" && (metodoPagoActual === "Efectivo" || metodoPagoActual === "Transferencia")) {
-            descuentoTotal += (pItem * 0.10);
+            descItem = pItem * 0.10;
+            descuentoTotal += descItem;
         }
+        itemsVenta.push({
+            codigo: item.codigo,
+            nombre: item.nombre,
+            categoria: item.categoria,
+            cantidad: item.cantidad,
+            precioUnitario: item.precio,
+            subtotal: pItem - descItem
+        });
     });
 
+    const ahora = new Date();
+    const fechaHoraStr = ahora.toLocaleDateString() + ' ' + ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     ventas.push({
+        cajero: cajeroActual.nombre,
+        fechaHora: fechaHoraStr,
         metodo: metodoPagoActual,
         total: subtotal - descuentoTotal,
-        descuento: descuentoTotal
+        descuento: descuentoTotal,
+        items: itemsVenta
     });
 
     carrito = [];
@@ -378,15 +396,78 @@ function confirmarCierreCaja() {
     mostrarAlerta("Caja cerrada y reseteada para el próximo turno.");
 }
 
+// Panel Administrador con PIN 6272
 function verAdmin() { modalAdmin.show(); }
 function verificarAccesoAdmin() {
-    if (document.getElementById('input-admin-pass').value === "1234") {
+    if (document.getElementById('input-admin-pass').value === "6272") {
         modalAdmin.hide();
         document.getElementById('input-admin-pass').value = '';
         switchTab('dashboard');
     } else {
-        mostrarAlerta("Clave incorrecta (Pista: 1234)");
+        mostrarAlerta("PIN incorrecto (PIN Administrador: 6272)");
     }
+}
+
+function actualizarDashboardAdmin() {
+    let totalEfe = 0, totalDeb = 0, totalTra = 0;
+    ventas.forEach(v => {
+        if (v.metodo === 'Efectivo') totalEfe += v.total;
+        if (v.metodo === 'Debito') totalDeb += v.total;
+        if (v.metodo === 'Transferencia') totalTra += v.total;
+    });
+
+    document.getElementById('admin-total-efe').textContent = `$U ${totalEfe.toFixed(2)}`;
+    document.getElementById('admin-total-deb').textContent = `$U ${totalDeb.toFixed(2)}`;
+    document.getElementById('admin-total-tra').textContent = `$U ${totalTra.toFixed(2)}`;
+    document.getElementById('admin-total-transacciones').textContent = ventas.length;
+
+    // Calcular cantidades vendidas por cada producto
+    let mapaKilos = {};
+    ventas.forEach(v => {
+        v.items.forEach(i => {
+            if (!mapaKilos[i.codigo]) {
+                mapaKilos[i.codigo] = { codigo: i.codigo, nombre: i.nombre, categoria: i.categoria, cantidad: 0 };
+            }
+            mapaKilos[i.codigo].cantidad += i.cantidad;
+        });
+    });
+
+    const tbodyKilos = document.getElementById('tabla-admin-kilos');
+    const listaKilosArr = Object.values(mapaKilos);
+    if (listaKilosArr.length === 0) {
+        tbodyKilos.innerHTML = `<tr><td colspan="4" class="text-muted py-2">No hay ventas registradas aún</td></tr>`;
+    } else {
+        tbodyKilos.innerHTML = listaKilosArr.map(k => `
+            <tr>
+                <td><span class="badge bg-secondary">${k.codigo}</span></td>
+                <td class="text-start fw-bold">${k.nombre}</td>
+                <td>${k.categoria}</td>
+                <td class="text-success fw-bold">${k.cantidad} un. / kg</td>
+            </tr>
+        `).join('');
+    }
+
+    // Renderizar Transacciones detalladas
+    const tbodyTrans = document.getElementById('tabla-admin-transacciones');
+    if (ventas.length === 0) {
+        tbodyTrans.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-2">Sin transacciones registradas</td></tr>`;
+    } else {
+        tbodyTrans.innerHTML = ventas.slice().reverse().map(v => `
+            <tr class="border-bottom">
+                <td class="text-center text-muted" style="font-size: 11px;">${v.fechaHora}</td>
+                <td class="text-center fw-bold text-primary">${v.cajero}</td>
+                <td class="text-center"><span class="badge bg-dark">${v.metodo}</span></td>
+                <td>
+                    <ul class="list-unstyled m-0" style="font-size: 11px;">
+                        ${v.items.map(i => `<li>• ${i.cantidad}x ${i.nombre} ($U ${i.subtotal.toFixed(2)})</li>`).join('')}
+                    </ul>
+                </td>
+                <td class="text-end fw-bold text-success">$U ${v.total.toFixed(2)}</td>
+            </tr>
+        `).join('');
+    }
+
+    renderTablaAdminProductos();
 }
 
 function renderTablaAdminProductos() {
@@ -394,30 +475,67 @@ function renderTablaAdminProductos() {
     tbody.innerHTML = catalogo.map(p => `
         <tr>
             <td class="fw-bold">${p.codigo}</td>
-            <td class="text-start">${p.nombre}</td>
-            <td>${p.categoria}</td>
-            <td>$U ${p.precio}</td>
+            <td class="text-start"><input type="text" class="form-control form-control-sm" value="${p.nombre}" id="input-nombre-${p.codigo}" onchange="modificarProductoDirecto('${p.codigo}', 'nombre', this.value)"></td>
+            <td>
+                <select class="form-select form-select-sm" id="input-cat-${p.codigo}" onchange="modificarProductoDirecto('${p.codigo}', 'categoria', this.value)">
+                    <option value="Carnes" ${p.categoria === 'Carnes' ? 'selected' : ''}>Carnes</option>
+                    <option value="Bebidas" ${p.categoria === 'Bebidas' ? 'selected' : ''}>Bebidas</option>
+                    <option value="Almacén" ${p.categoria === 'Almacén' ? 'selected' : ''}>Almacén</option>
+                </select>
+            </td>
+            <td><input type="number" class="form-control form-control-sm" value="${p.precio}" step="0.01" id="input-precio-${p.codigo}" onchange="modificarProductoDirecto('${p.codigo}', 'precio', this.value)"></td>
             <td><button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="eliminarArticulo('${p.codigo}')"><i class="fas fa-trash"></i></button></td>
         </tr>
     `).join('');
 }
 
-function abrirModalNuevoProducto() { modalProducto.show(); }
+function modificarProductoDirecto(codigo, campo, valor) {
+    let p = catalogo.find(item => item.codigo === codigo);
+    if (p) {
+        if (campo === 'precio') {
+            p.precio = parseFloat(valor) || 0;
+        } else if (campo === 'nombre') {
+            p.nombre = valor.trim();
+        } else if (campo === 'categoria') {
+            p.categoria = valor;
+        }
+        renderCatalogoGeneral(catalogo);
+    }
+}
+
+function abrirModalNuevoProducto() {
+    document.getElementById('prod-editando-codigo').value = "";
+    document.getElementById('prod-codigo').value = "";
+    document.getElementById('prod-nombre').value = "";
+    document.getElementById('prod-precio').value = "";
+    document.getElementById('titulo-modal-producto').textContent = "Nuevo Artículo";
+    modalProducto.show();
+}
+
 function guardarProductoAdmin() {
     const codigo = document.getElementById('prod-codigo').value.trim();
     const nombre = document.getElementById('prod-nombre').value.trim();
     const categoria = document.getElementById('prod-categoria').value;
     const precio = parseFloat(document.getElementById('prod-precio').value);
 
-    if (codigo && nombre && !isNaN(precio)) {
-        catalogo.push({ codigo, nombre, categoria, precio });
-        renderCatalogoGeneral(catalogo);
-        renderTablaAdminProductos();
-        modalProducto.hide();
-        mostrarAlerta("Artículo agregado con éxito.");
-    } else {
-        mostrarAlerta("Complete todos los campos.");
+    if (!codigo || !nombre || isNaN(precio)) {
+        return mostrarAlerta("Complete todos los campos correctamente.");
     }
+
+    let existente = catalogo.find(p => p.codigo === codigo);
+    if (existente) {
+        existente.nombre = nombre;
+        existing.categoria = categoria;
+        existente.precio = precio;
+        mostrarAlerta("Artículo actualizado con éxito.");
+    } else {
+        catalogo.push({ codigo, nombre, categoria, precio });
+        mostrarAlerta("Artículo agregado con éxito.");
+    }
+
+    renderCatalogoGeneral(catalogo);
+    renderTablaAdminProductos();
+    modalProducto.hide();
 }
 
 function eliminarArticulo(codigo) {
