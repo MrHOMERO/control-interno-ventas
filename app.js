@@ -15,7 +15,7 @@ catalogo.push(
 let carrito = [];
 let ventas = [];
 let compras = [];
-let proveedoresGuardados = ["Frigorífico Modelo", "Distribuidora Carnes del Este", "Bebidas Uruguay S.A."];
+let proveedoresRegistrados = ["Frigorífico Modelo", "Distribuidora Carnes del Este", "Bebidas Uruguay S.A."];
 let cajerosRegistrados = [
     { nombre: "Admin", pin: "1234" },
     { nombre: "Juan Pérez", pin: "1111" }
@@ -25,12 +25,13 @@ let horarioTurnoActual = "Sin Turno";
 let fondoInicialCaja = 0;
 let metodoPagoActual = "Efectivo";
 
-let modalTurno, modalCrearUsuario, modalCompras, modalCierre, modalAdmin, modalProducto, modalAlerta;
+let modalTurno, modalCrearUsuario, modalCompras, modalCrearProveedor, modalCierre, modalAdmin, modalProducto, modalAlerta;
 
 document.addEventListener("DOMContentLoaded", () => {
     modalTurno = new bootstrap.Modal(document.getElementById('modalTurno'));
     modalCrearUsuario = new bootstrap.Modal(document.getElementById('modalCrearUsuario'));
     modalCompras = new bootstrap.Modal(document.getElementById('modalCompras'));
+    modalCrearProveedor = new bootstrap.Modal(document.getElementById('modalCrearProveedor'));
     modalCierre = new bootstrap.Modal(document.getElementById('modalCierreCaja'));
     modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
     modalProducto = new bootstrap.Modal(document.getElementById('modalProducto'));
@@ -188,16 +189,43 @@ function cobrarVenta() {
     mostrarAlerta("¡Venta cobrada con éxito!");
 }
 
-// Gestión de Compras y Proveedores
+// Gestión de Compras y Proveedores Registrados
 function abrirModalCompras() {
     if (!cajeroActual) return mostrarAlerta("Debe iniciar turno primero.");
     
-    const datalist = document.getElementById('lista-proveedores-sugeridos');
-    datalist.innerHTML = proveedoresGuardados.map(p => `<option value="${p}">`).join('');
+    const select = document.getElementById('select-proveedor-registrado');
+    select.innerHTML = proveedoresRegistrados.map(p => `<option value="${p}">${p}</option>`).join('');
+    if (proveedoresRegistrados.length > 0) {
+        document.getElementById('input-compra-proveedor').value = proveedoresRegistrados[0];
+    }
     
-    document.getElementById('input-compra-proveedor').value = '';
     document.getElementById('input-compra-monto').value = '';
     modalCompras.show();
+}
+
+function seleccionarProveedorLista(nombre) {
+    document.getElementById('input-compra-proveedor').value = nombre;
+}
+
+function abrirModalCrearProveedor() {
+    modalCompras.hide();
+    document.getElementById('nuevo-proveedor-nombre').value = '';
+    modalCrearProveedor.show();
+}
+
+function guardarNuevoProveedor() {
+    const nombre = document.getElementById('nuevo-proveedor-nombre').value.trim();
+    if (!nombre) {
+        return mostrarAlerta("Ingrese el nombre del proveedor.");
+    }
+    if (proveedoresRegistrados.some(p => p.toLowerCase() === nombre.toLowerCase())) {
+        return mostrarAlerta("El proveedor ya se encuentra registrado.");
+    }
+
+    proveedoresRegistrados.push(nombre);
+    modalCrearProveedor.hide();
+    mostrarAlerta(`Proveedor ${nombre} guardado con éxito.`);
+    abrirModalCompras(); // Volver al modal de compras
 }
 
 function registrarCompraProveedor() {
@@ -206,11 +234,7 @@ function registrarCompraProveedor() {
     const pago = document.getElementById('select-compra-pago').value;
 
     if (!proveedor || isNaN(monto) || monto <= 0) {
-        return mostrarAlerta("Ingrese un proveedor válido y un monto mayor a 0.");
-    }
-
-    if (!proveedoresGuardados.includes(proveedor)) {
-        proveedoresGuardados.push(proveedor);
+        return mostrarAlerta("Seleccione un proveedor válido y un monto mayor a 0.");
     }
 
     compras.push({ proveedor, monto, pago });
@@ -226,6 +250,7 @@ function abrirModalTurno() {
     if (cajerosRegistrados.length > 0) {
         document.getElementById('input-cajero-nombre').value = cajerosRegistrados[0].nombre;
     }
+    document.getElementById('input-fondo-inicial').value = '';
     modalTurno.show();
 }
 
@@ -262,7 +287,8 @@ function iniciarTurnoCajero() {
     const horario = document.getElementById('select-horario-turno').value;
     const nombre = document.getElementById('input-cajero-nombre').value;
     const pin = document.getElementById('input-cajero-pin').value.trim();
-    const fondo = parseFloat(document.getElementById('input-fondo-inicial').value);
+    const fondoInput = document.getElementById('input-fondo-inicial').value.trim();
+    const fondo = parseFloat(fondoInput);
 
     const cajeroEncontrado = cajerosRegistrados.find(c => c.nombre === nombre && c.pin === pin);
 
@@ -270,8 +296,8 @@ function iniciarTurnoCajero() {
         return mostrarAlerta("PIN incorrecto o cajero no válido.");
     }
 
-    if (isNaN(fondo)) {
-        return mostrarAlerta("Ingrese un fondo inicial válido.");
+    if (fondoInput === "" || isNaN(fondo) || fondo <= 0) {
+        return mostrarAlerta("Debe ingresar un monto específico y válido para el fondo inicial de caja (mayor a 0).");
     }
 
     cajeroActual = cajeroEncontrado;
