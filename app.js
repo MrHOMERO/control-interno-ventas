@@ -225,7 +225,7 @@ function guardarNuevoProveedor() {
     proveedoresRegistrados.push(nombre);
     modalCrearProveedor.hide();
     mostrarAlerta(`Proveedor ${nombre} guardado con éxito.`);
-    abrirModalCompras(); // Volver al modal de compras
+    abrirModalCompras();
 }
 
 function registrarCompraProveedor() {
@@ -280,7 +280,7 @@ function guardarNuevoCajero() {
     cajerosRegistrados.push({ nombre, pin });
     modalCrearUsuario.hide();
     mostrarAlerta(`Cajero ${nombre} registrado con éxito.`);
-    abrirModalTurno(); // Volver al modal de turno para iniciar
+    abrirModalTurno();
 }
 
 function iniciarTurnoCajero() {
@@ -335,10 +335,37 @@ function actualizarResumenTurno() {
     document.getElementById('resumen-compras-trans').textContent = `$U ${comprasTrans.toFixed(2)}`;
     document.getElementById('resumen-descuentos').textContent = `$U ${tDesc.toFixed(2)}`;
     document.getElementById('resumen-fondo-caja').textContent = `$U ${cajaFisicaEfectivo.toFixed(2)}`;
-    document.getElementById('cierre-total-txt').textContent = `$U ${cajaFisicaEfectivo.toFixed(2)}`;
 }
 
-function abrirModalCierreCaja() { modalCierre.show(); }
+function abrirModalCierreCaja() {
+    if (!cajeroActual) return mostrarAlerta("Debe iniciar turno primero.");
+
+    let tEfe = 0, tTra = 0, tDeb = 0, tDesc = 0;
+    ventas.forEach(v => {
+        if (v.metodo === 'Efectivo') tEfe += v.total;
+        if (v.metodo === 'Transferencia') tTra += v.total;
+        if (v.metodo === 'Debito') tDeb += v.total;
+        tDesc += v.descuento;
+    });
+
+    let comprasEfe = 0;
+    compras.forEach(c => {
+        if (c.pago === 'Efectivo') comprasEfe += c.monto;
+    });
+
+    let cajaFisicaEfectivo = fondoInicialCaja + tEfe - comprasEfe;
+
+    document.getElementById('cierre-fondo-inicial').textContent = `$U ${fondoInicialCaja.toFixed(2)}`;
+    document.getElementById('cierre-ventas-efe').textContent = `$U ${tEfe.toFixed(2)}`;
+    document.getElementById('cierre-compras-efe').textContent = `-$U ${comprasEfe.toFixed(2)}`;
+    document.getElementById('cierre-ventas-trans').textContent = `$U ${tTra.toFixed(2)}`;
+    document.getElementById('cierre-ventas-deb').textContent = `$U ${tDeb.toFixed(2)}`;
+    document.getElementById('cierre-descuentos').textContent = `$U ${tDesc.toFixed(2)}`;
+    document.getElementById('cierre-total-txt').textContent = `$U ${cajaFisicaEfectivo.toFixed(2)}`;
+
+    modalCierre.show();
+}
+
 function confirmarCierreCaja() {
     ventas = [];
     compras = [];
