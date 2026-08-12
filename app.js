@@ -1,6 +1,7 @@
+// ================= CATALOGO INICIAL DE 200 PRODUCTOS =================
 let catalogo = JSON.parse(localStorage.getItem('minipos_catalogo')) || [];
 if (catalogo.length === 0) {
-    for (let i = 1; i <= 50; i++) {
+    for (let i = 1; i <= 150; i++) {
         catalogo.push({
             codigo: i.toString(),
             nombre: `Corte Vacuno Especial ${i}`,
@@ -8,10 +9,42 @@ if (catalogo.length === 0) {
             precio: parseFloat((250 + (i * 0.5)).toFixed(2))
         });
     }
-    catalogo.push(
+    
+    // Rango adicional hasta completar 200 productos entre Almacén y Bebidas
+    const extras = [
         { codigo: "501", nombre: "Coca Cola 2L", categoria: "Bebidas", precio: 130 },
-        { codigo: "601", nombre: "Pan Flauta 1Kg", categoria: "Almacén", precio: 90 }
-    );
+        { codigo: "502", nombre: "Pepsi 2L", categoria: "Bebidas", precio: 125 },
+        { codigo: "503", nombre: "Agua Mineral sin Gas 2.25L", categoria: "Bebidas", precio: 70 },
+        { codigo: "504", nombre: "Cerveza Patricia 1L", categoria: "Bebidas", precio: 160 },
+        { codigo: "505", nombre: "Cerveza Pilsen Lata 473ml", categoria: "Bebidas", precio: 75 },
+        { codigo: "506", nombre: "Vino Tinto Tannat 750ml", categoria: "Bebidas", precio: 280 },
+        { codigo: "507", nombre: "Jugo Citric Naranja 1L", categoria: "Bebidas", precio: 110 },
+        { codigo: "508", nombre: "Speed Unlimited 473ml", categoria: "Bebidas", precio: 95 },
+        { codigo: "509", nombre: "Fanta Naranja 2L", categoria: "Bebidas", preficio: 130 },
+        { codigo: "510", nombre: "Sprite 2L", categoria: "Bebidas", precio: 130 },
+        { codigo: "601", nombre: "Pan Flauta 1Kg", categoria: "Almacén", precio: 90 },
+        { codigo: "602", nombre: "Yerba Canarias 1Kg", categoria: "Almacén", precio: 240 },
+        { codigo: "603", nombre: "Azúcar White 1Kg", categoria: "Almacén", precio: 55 },
+        { codigo: "604", nombre: "Leche Entera Sachet 1L", categoria: "Almacén", precio: 46 },
+        { codigo: "605", nombre: "Manteca Conaprole 200g", categoria: "Almacén", precio: 92 },
+        { codigo: "606", nombre: "Queso Danbo Feteado 100g", categoria: "Almacén", precio: 68 },
+        { codigo: "607", nombre: "Jamón Cocido Feteado 100g", categoria: "Almacén", precio: 72 },
+        { codigo: "608", nombre: "Fideos Spaghetti 500g", categoria: "Almacén", precio: 50 },
+        { codigo: "609", nombre: "Aceite de Girasol 900ml", categoria: "Almacén", precio: 135 },
+        { codigo: "610", nombre: "Sal Fina 1Kg", categoria: "Almacén", precio: 32 }
+    ];
+
+    // Completar hasta 200 si fuera necesario
+    for (let j = 1; j <= 40; j++) {
+        catalogo.push({
+            codigo: (700 + j).toString(),
+            nombre: `Articulo de Almacen Genérico ${j}`,
+            categoria: "Almacén",
+            precio: parseFloat((40 + (j * 1.5)).toFixed(2))
+        });
+    }
+
+    extras.forEach(ex => catalogo.push(ex));
     localStorage.setItem('minipos_catalogo', JSON.stringify(catalogo));
 }
 
@@ -82,6 +115,7 @@ function mostrarAlerta(msg) {
 
 function renderCatalogoGeneral(lista) {
     const contenedor = document.getElementById('lista-catalogo-general');
+    if (!contenedor) return;
     if (lista.length === 0) {
         contenedor.innerHTML = `<p class="text-center text-muted small my-2">No se encontraron artículos</p>`;
         return;
@@ -113,34 +147,21 @@ function manejarEnterEscanner(e) {
     if (e.key === 'Enter') procesarCodigoBarras();
 }
 
-/**
- * PROCESADOR INTELIGENTE DE CÓDIGO DE BARRAS / ESCÁNER / BALANZA
- * Soporta:
- * 1. Códigos normales del catálogo.
- * 2. Tickets de balanza (ej. formato estándar de 13 dígitos que empieza con '2': 
- *    - Dígito 1: Prefix '2'
- *    - Dígitos 2-5: Código del producto (4 dígitos, ej. '0001')
- *    - Dígitos 6-12: Precio total o Peso integrado en centavos/gramos, o lectura directa).
- */
 function procesarCodigoBarras() {
     const inputElem = document.getElementById('input-buscar-articulo');
+    if (!inputElem) return;
     const val = inputElem.value.trim();
     if (!val) return;
 
-    // Verificar si es un código de balanza (ej. longitud de 12 o 13 caracteres iniciando con '2')
     if (val.length >= 12 && val.startsWith('2')) {
-        // Extraer código de producto (usualmente del índice 1 al 5, ej: 4 dígitos)
-        const codigoProvisorio = String(parseInt(val.substring(1, 5), 10)); // Quita ceros a la izquierda para emparejar con el catálogo
+        const codigoProvisorio = String(parseInt(val.substring(1, 5), 10));
         const prod = catalogo.find(p => p.codigo === codigoProvisorio || p.codigo === val.substring(1, 5));
         
         if (prod) {
-            // Extraer valor de precio o peso de los dígitos siguientes (ej: últimos dígitos divididos por 100 para dar formato moneda)
-            // Estándar común: 5 dígitos de precio/peso (ej. los caracteres del 6 al 11)
             const valorRaw = parseInt(val.substring(5, 11), 10) / 100;
             let cantidadCalculada = 1;
 
             if (!isNaN(valorRaw) && valorRaw > 0 && prod.precio > 0) {
-                // Si el valor representa el precio total del ticket de balanza, calculamos el peso exacto (kilos)
                 cantidadCalculada = parseFloat((valorRaw / prod.precio).toFixed(3));
             }
 
@@ -151,7 +172,6 @@ function procesarCodigoBarras() {
         }
     }
 
-    // Búsqueda normal por código exacto o nombre
     const prodNormal = catalogo.find(p => p.codigo === val || p.nombre.toLowerCase() === val.toLowerCase());
     if (prodNormal) {
         agregarAlCarritoDirecto(prodNormal.codigo);
@@ -194,6 +214,7 @@ function actualizarMetodoPago() {
 
 function renderCarrito() {
     const list = document.getElementById('cart-items');
+    if (!list) return;
     let subtotal = 0;
     let descuentoTotal = 0;
 
@@ -496,7 +517,8 @@ function cambiarFiltroTemporal(tipo) {
         const btn = document.getElementById(`btn-filtro-${t}`);
         if (btn) btn.classList.remove('active');
     });
-    document.getElementById(`btn-filtro-${tipo}`).classList.add('active');
+    const btnActivo = document.getElementById(`btn-filtro-${tipo}`);
+    if (btnActivo) btnActivo.classList.add('active');
     actualizarDashboardAdmin();
 }
 
@@ -614,67 +636,74 @@ function renderizarGraficas(tEfe, tTra, tDeb, tGastos, mapaCortesMonto, listaKil
     if (chartCortesInstancia) chartCortesInstancia.destroy();
     if (chartKilosInstancia) chartKilosInstancia.destroy();
 
-    const ctx1 = document.getElementById('chartVentasGastos').getContext('2d');
-    chartVentasGastosInstancia = new Chart(ctx1, {
-        type: 'pie',
-        data: {
-            labels: ['Efectivo', 'Transferencia', 'Débito/Créd.', 'Gastos/Compras'],
-            datasets: [{
-                data: [tEfe, tTra, tDeb, tGastos],
-                backgroundColor: ['#198754', '#0d6efd', '#0dcaf0', '#dc3545']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
-        }
-    });
+    const ctx1 = document.getElementById('chartVentasGastos');
+    if (ctx1) {
+        chartVentasGastosInstancia = new Chart(ctx1.getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: ['Efectivo', 'Transferencia', 'Débito/Créd.', 'Gastos/Compras'],
+                datasets: [{
+                    data: [tEfe, tTra, tDeb, tGastos],
+                    backgroundColor: ['#198754', '#0d6efd', '#0dcaf0', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
+            }
+        });
+    }
 
     const cortesLabels = Object.keys(mapaCortesMonto).slice(0, 5);
     const cortesData = Object.values(mapaCortesMonto).slice(0, 5);
-    const ctx2 = document.getElementById('chartCortes').getContext('2d');
-    chartCortesInstancia = new Chart(ctx2, {
-        type: 'bar',
-        data: {
-            labels: cortesLabels.length > 0 ? cortesLabels : ['Sin Datos'],
-            datasets: [{
-                label: 'Ingresos ($U)',
-                data: cortesData.length > 0 ? cortesData : [0],
-                backgroundColor: '#ffc107'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } }
-        }
-    });
+    const ctx2 = document.getElementById('chartCortes');
+    if (ctx2) {
+        chartCortesInstancia = new Chart(ctx2.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: cortesLabels.length > 0 ? cortesLabels : ['Sin Datos'],
+                datasets: [{
+                    label: 'Ingresos ($U)',
+                    data: cortesData.length > 0 ? cortesData : [0],
+                    backgroundColor: '#ffc107'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } }
+            }
+        });
+    }
 
     const topKilos = listaKilosArr.sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
     const kilosLabels = topKilos.map(k => k.nombre);
     const kilosData = topKilos.map(k => k.cantidad);
-    const ctx3 = document.getElementById('chartKilos').getContext('2d');
-    chartKilosInstancia = new Chart(ctx3, {
-        type: 'doughnut',
-        data: {
-            labels: kilosLabels.length > 0 ? kilosLabels : ['Sin Datos'],
-            datasets: [{
-                data: kilosData.length > 0 ? kilosData : [1],
-                backgroundColor: ['#6610f2', '#6f42c1', '#d63384', '#fd7e14', '#20c997']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }
-        }
-    });
+    const ctx3 = document.getElementById('chartKilos');
+    if (ctx3) {
+        chartKilosInstancia = new Chart(ctx3.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: kilosLabels.length > 0 ? kilosLabels : ['Sin Datos'],
+                datasets: [{
+                    data: kilosData.length > 0 ? kilosData : [1],
+                    backgroundColor: ['#6610f2', '#6f42c1', '#d63384', '#fd7e14', '#20c997']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }
+            }
+        });
+    }
 }
 
 function renderTablaAdminProductos() {
     const tbody = document.getElementById('tabla-admin-productos');
+    if (!tbody) return;
     tbody.innerHTML = catalogo.map(p => `
         <tr>
             <td class="fw-bold">${p.codigo}</td>
@@ -750,4 +779,4 @@ function eliminarArticulo(codigo) {
     guardarEnStorage();
     renderCatalogoGeneral(catalogo);
     renderTablaAdminProductos();
-}
+        }
