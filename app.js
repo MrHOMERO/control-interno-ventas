@@ -780,3 +780,240 @@ function eliminarArticulo(codigo) {
     renderCatalogoGeneral(catalogo);
     renderTablaAdminProductos();
         }
+function cambiarFiltroTemporal(tipo) {
+    filtroTemporalActual = tipo;
+    ['hoy', 'semana', 'mes', 'historico'].forEach(t => {
+        const btn = document.getElementById(`btn-filtro-${t}`);
+        if (btn) btn.classList.remove('active');
+    });
+    const btnActivo = document.getElementById(`btn-filtro-${tipo}`);
+    if (btnActivo) btnActivo.classList.add('active');
+    actualizarDashboardAdmin();
+}
+
+function filtrarPorTiempo(lista) {
+    if (filtroTemporalActual === 'historico') return lista;
+
+    const ahora = new Date();
+    return lista.filter(item => {
+        if (!item.fechaIso) return true;
+        const fechaItem = new Date(item.fechaIso);
+
+        if (filtroTemporalActual === 'hoy') {
+            return fechaItem.toDateString() === ahora.toDateString();
+        } else if (filtroTemporalActual === 'semana') {
+            const unDiaMs = 24 * 60 * 60 * 1000;
+            const diffDias = Math.abs((ahora - fechaItem) / unDiaMs);
+            return diffDias <= 7;
+        } else if (filtroTemporalActual === 'mes') {
+            return fechaItem.getMonth() === ahora.getMonth() && fechaItem.getFullYear() === ahora.getFullYear();
+        }
+        return true;
+    });
+}
+
+function actualizarDashboardAdmin() {
+    const ventasFiltradas = filtrarPorTiempo(ventas);
+    const comprasFiltradas = filtrarPorTiempo(compras);
+
+    let totalEfe = 0, totalDeb = 0, totalTra = 0;
+    ventasFiltradas.forEach(v => {
+        if (v.metodo === 'Efectivo') totalEfe += v.total;
+        if (v.metodo === 'Debito') totalDeb += v.total;
+        if (v.metodo === 'Transferencia') totalTra += v.total;
+    });
+
+    let totalGastos = 0;
+    comprasFiltradas.forEach(c => { totalGastos += c.monto; });
+
+    document.getElementById('admin-total-efe').textContent = `$U ${totalEfe.toFixed(2)}`;
+    document.getElementById('admin-total-deb').textContent = `$U ${totalDeb.toFixed(2)}`;
+    document.getElementById('admin-total-tra').textContent = `$U ${totalTra.toFixed(2)}`;
+    document.getElementById('admin-total-gastos').textContent = `$U ${totalGastos.toFixed(2)}`;
+
+    let mapaKilos = {};
+    let mapaCortesMonto = {};
+    ventasFiltradas.forEach(v => {
+        v.items.forEach(i => {
+            if (!mapaKilos[i.codigo]) {
+                mapaKilos[i.codigo] = { codigo: i.codigo, nombre: i.nombre, categoria: i.categoria, cantidad: 0 };
+            }
+            mapaKilos[i.codigo].cantidad += i.cantidad;
+
+            if (!mapaCortesMonto[i.nombre]) {
+                mapaCortesMonto[i.nombre] = 0;
+            }
+            mapaCortesMonto[i.nombre] += i.subtotal;
+        });
+    });
+
+    const tbodyKilos = document.getElementById('tabla-admin-kilos');
+    const listaKilosArr = Object.values(mapaKilos);
+    if (tbodyKilos) {
+        if (listaKilosArr.length === 0) {
+            tbodyKilos.innerHTML = `<tr><td colspan="4" class="text-muted py-2">No hay ventas registradas en este periodo</td></tr>`;
+        } else {
+            tbodyKilos.innerHTML = listaKilosArr.map(k => `
+                <tr>
+                    <td><span class="badge bg-secondary">${k.codigo}</span></td>
+                    <td class="text-start fw-bold">${k.nombre}</td>
+                    <td>${k.categoria}</td>
+                    <td class="text-success fw-bold">${k.cantidad.toFixed(3)} kg / un.</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    renderTablaAdminProductos();
+    renderizarGraficas(totalEfe, totalTra, totalDeb, totalGastos, mapaCortesMonto, listaKilosArr);
+}
+
+function renderizarGraficas(tEfe, tTra, tDeb, tGastos, mapaCortesMonto, listaKilosArr) {
+    if (chartVentasGastosInstancia) chartVentasGastosInstancia.destroy();
+    if (chartCortesInstancia) chartCortesInstancia.destroy();
+    if (chartKilosInstancia) chartKilosInstancia.destroy();
+
+    const ctx1 = document.getElementById('chartVentasGastos');
+    if (ctx1) {
+        chartVentasGastosInstancia = new Chart(ctx1.getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: ['Efectivo', 'Transferencia', 'Débito/Créd.', 'Gastos/Compras'],
+                datasets: [{
+                    data: [tEfe, tTra, tDeb, tGastos],
+                    backgroundColor: ['#198754', '#0d6efd', '#0dcaf0', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
+            }
+        });
+    }
+
+    const cortesLabels = Object.keys(mapaCortesMonto).slice(0, 5);
+    const cortesData = Object.values(mapaCortesMonto).slice(0, 5);
+    const ctx2 = document.getElementById('chartCortes');
+    if (ctx2) {
+        chartCortesInstancia = new Chart(ctx2.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: cortesLabels.length > 0 ? cortesLabels : ['Sin Datos'],
+                datasets: [{
+                    label: 'Ingresos ($U)',
+                    data: cortesData.length > 0 ? cortesData : [0],
+                    backgroundColor: '#ffc107'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } }
+            }
+        });
+    }
+
+    const topKilos = listaKilosArr.sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
+    const kilosLabels = topKilos.map(k => k.nombre);
+    const kilosData = topKilos.map(k => k.cantidad);
+    const ctx3 = document.getElementById('chartKilos');
+    if (ctx3) {
+        chartKilosInstancia = new Chart(ctx3.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: kilosLabels.length > 0 ? kilosLabels : ['Sin Datos'],
+                datasets: [{
+                    data: kilosData.length > 0 ? kilosData : [1],
+                    backgroundColor: ['#6610f2', '#6f42c1', '#d63384', '#fd7e14', '#20c997']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }
+            }
+        });
+    }
+}
+
+function renderTablaAdminProductos() {
+    const tbody = document.getElementById('tabla-admin-productos');
+    if (!tbody) return;
+    tbody.innerHTML = catalogo.map(p => `
+        <tr>
+            <td class="fw-bold">${p.codigo}</td>
+            <td class="text-start">${p.nombre}</td>
+            <td><span class="badge bg-danger">${p.categoria}</span></td>
+            <td class="fw-bold text-success">$U ${p.precio}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary py-0 px-1 me-1" onclick="abrirModalEditarProducto('${p.codigo}')" title="Editar"><i class="fas fa-pen"></i></button>
+                <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="eliminarArticulo('${p.codigo}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function abrirModalNuevoProducto() {
+    document.getElementById('prod-editando-codigo').value = "";
+    document.getElementById('prod-codigo').value = "";
+    document.getElementById('prod-nombre').value = "";
+    document.getElementById('prod-categoria').value = "Carnicería";
+    document.getElementById('prod-precio').value = "";
+    document.getElementById('titulo-modal-producto').textContent = "Nuevo Artículo";
+    modalProducto.show();
+}
+
+function abrirModalEditarProducto(codigo) {
+    let p = catalogo.find(item => item.codigo === codigo);
+    if (!p) return;
+
+    document.getElementById('prod-editando-codigo').value = p.codigo;
+    document.getElementById('prod-codigo').value = p.codigo;
+    document.getElementById('prod-nombre').value = p.nombre;
+    document.getElementById('prod-categoria').value = p.categoria;
+    document.getElementById('prod-precio').value = p.precio;
+    document.getElementById('titulo-modal-producto').textContent = "Editar Artículo";
+    modalProducto.show();
+}
+
+function guardarProductoAdmin() {
+    const codigoAntiguo = document.getElementById('prod-editando-codigo').value;
+    const codigo = document.getElementById('prod-codigo').value.trim();
+    const nombre = document.getElementById('prod-nombre').value.trim();
+    const categoria = document.getElementById('prod-categoria').value;
+    const precio = parseFloat(document.getElementById('prod-precio').value);
+
+    if (!codigo || !nombre || isNaN(precio)) {
+        return mostrarAlerta("Complete todos los campos correctamente.");
+    }
+
+    if (codigoAntiguo === "") {
+        let existente = catalogo.find(p => p.codigo === codigo);
+        if (existente) return mostrarAlerta("Ya existe un producto con ese código.");
+        catalogo.push({ codigo, nombre, categoria, precio });
+        mostrarAlerta("Artículo agregado con éxito.");
+    } else {
+        let p = catalogo.find(item => item.codigo === codigoAntiguo);
+        if (p) {
+            p.codigo = codigo;
+            p.nombre = nombre;
+            p.categoria = categoria;
+            p.precio = precio;
+            mostrarAlerta("Artículo actualizado con éxito.");
+        }
+    }
+
+    guardarEnStorage();
+    renderCatalogoGeneral(catalogo);
+    renderTablaAdminProductos();
+    modalProducto.hide();
+}
+
+function eliminarArticulo(codigo) {
+    catalogo = catalogo.filter(p => p.codigo !== codigo);
+    guardarEnStorage();
+    renderCatalogoGeneral(catalogo);
+    renderTablaAdminProductos();
+        }
