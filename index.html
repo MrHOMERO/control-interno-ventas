@@ -3,374 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MiniPOS Pro - Control de Ventas</title>
+    <title>MiniPOS - Carnicería</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js para gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-light">
 
-    <!-- NAVBAR SUPERIOR -->
-    <nav class="navbar navbar-dark bg-dark py-1 shadow-sm">
+    <!-- NAVBAR / HEADER -->
+    <nav class="navbar navbar-dark bg-dark px-3 py-2">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold fs-6" href="#"><i class="fas fa-cash-register me-1 text-warning"></i> MiniPOS</a>
-            <div class="d-flex gap-1">
-                <button class="btn btn-warning btn-sm fw-bold py-0 px-2" style="font-size: 12px;" data-bs-toggle="modal" data-bs-target="#modalTurno"><i class="fas fa-clock me-1"></i>Turno</button>
-                <button class="btn btn-primary btn-sm fw-bold py-0 px-2" style="font-size: 12px;" data-bs-toggle="modal" data-bs-target="#modalCaja"><i class="fas fa-box-open me-1"></i>Caja</button>
-                <button class="btn btn-info btn-sm fw-bold text-white py-0 px-2" style="font-size: 12px;" data-bs-toggle="modal" data-bs-target="#modalCompras"><i class="fas fa-shopping-cart me-1"></i>Compras</button>
-                <button class="btn btn-danger btn-sm fw-bold py-0 px-2" style="font-size: 12px;" data-bs-toggle="modal" data-bs-target="#modalCierreCaja"><i class="fas fa-lock me-1"></i>Cierre</button>
-                <button class="btn btn-dark border-secondary btn-sm text-white py-0 px-2" style="font-size: 12px;" data-bs-toggle="modal" data-bs-target="#modalAdmin"><i class="fas fa-user-shield me-1"></i>Admin</button>
+            <span class="navbar-brand mb-0 h1"><i class="fas fa-drumstick-bite text-danger me-2"></i>MiniPOS Carnicería</span>
+            <div class="d-flex align-items-center gap-3">
+                <span id="label-cajero-actual" class="text-white small fw-bold">Cajero: Ninguno</span>
+                <button class="btn btn-outline-light btn-sm" onclick="abrirModalTurno()"><i class="fas fa-user-clock me-1"></i>Turno</button>
+                <button class="btn btn-outline-warning btn-sm" onclick="abrirModalCompras()"><i class="fas fa-shopping-cart me-1"></i>Compras</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="abrirModalCierreCaja()"><i class="fas fa-cash-register me-1"></i>Cierre</button>
+                <button class="btn btn-outline-info btn-sm" onclick="verAdmin()"><i class="fas fa-chart-line me-1"></i>Admin</button>
             </div>
         </div>
     </nav>
 
-    <!-- CONTENEDOR PRINCIPAL CON DISEÑO DE DOS COLUMNAS EN ESCRITORIO -->
-    <div class="container-fluid py-2">
-        <div class="row g-2">
-            
-            <!-- COLUMNA IZQUIERDA: Catálogo, Buscador y Resumen de Turno -->
-            <div class="col-lg-6 col-md-12">
-                
-                <!-- Buscador de Artículos -->
-                <div class="card shadow-sm mb-2">
-                    <div class="card-body p-2">
-                        <label class="form-label text-muted small fw-bold mb-1"><i class="fas fa-barcode me-1"></i>Escáner / Búsqueda de Artículos</label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" id="input-buscador" class="form-control" placeholder="Escribe o escanee código o ticket de balanza..." onkeyup="filtrarCatalogo(this.value)">
-                            <button class="btn btn-primary" type="button"><i class="fas fa-search"></i></button>
+    <!-- VISTA PRINCIPAL (POS) -->
+    <div id="view-pos" class="container-fluid py-3">
+        <div class="row g-3">
+            <!-- Columna Izquierda: Búsqueda y Catálogo de 200 Productos -->
+            <div class="col-md-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body d-flex flex-column p-3">
+                        <h6 class="fw-bold mb-2 text-secondary"><i class="fas fa-search me-1"></i>Búsqueda y Escáner (Balanza)</h6>
+                        <div class="input-group mb-2">
+                            <input type="text" id="input-buscar-articulo" class="form-control form-control-sm" placeholder="Código, nombre o etiqueta de balanza..." oninput="filtrarCatalogoRapido(this.value)" onkeydown="manejarEnterEscanner(event)">
+                            <button class="btn btn-dark btn-sm" type="button" onclick="procesarCodigoBarras()"><i class="fas fa-barcode"></i></button>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Catálogo General -->
-                <div class="card shadow-sm mb-2">
-                    <div class="card-header bg-white py-1 d-flex justify-content-between align-items-center">
-                        <span class="small fw-bold text-muted">Catálogo General (Carnes, Almacén y Bebidas)</span>
-                        <span class="badge bg-secondary" id="contador-catalogo" style="font-size: 10px;">0 Artículos</span>
-                    </div>
-                    <div class="card-body p-2" style="max-height: 280px; overflow-y: auto;" id="contenedor-catalogo">
-                        <!-- Los productos se inyectarán aquí dinámicamente -->
-                    </div>
-                </div>
-
-                <!-- Resumen del Turno -->
-                <div class="card shadow-sm border-warning">
-                    <div class="card-header bg-warning bg-opacity-25 py-1 d-flex justify-content-between align-items-center">
-                        <span class="small fw-bold text-dark"><i class="fas fa-chart-pie me-1"></i>Resumen del Turno (<span id="txt-estado-turno">Sin Turno</span>)</span>
-                        <span class="badge bg-dark" id="badge-total-ventas-turno" style="font-size: 10px;">0 Ventas Total</span>
-                    </div>
-                    <div class="card-body p-2 small">
-                        <div class="d-flex justify-content-between text-muted mb-1">
-                            <span>Efectivo Ventas:</span>
-                            <span id="resumen-efe-ventas" class="fw-bold">$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between text-muted mb-1">
-                            <span>Transferencia Ventas:</span>
-                            <span id="resumen-trans-ventas" class="fw-bold">$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between text-muted mb-1">
-                            <span>Débito / Tarjeta Ventas:</span>
-                            <span id="resumen-deb-ventas" class="fw-bold">$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between text-danger mb-1">
-                            <span>Compras / Gastos Efectivo:</span>
-                            <span id="resumen-efe-compras" class="fw-bold">-$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between text-danger mb-1">
-                            <span>Compras Transferencia:</span>
-                            <span id="resumen-trans-compras" class="fw-bold">-$U 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between bg-light px-1 py-1 mb-1 rounded">
-                            <span>Total Descuentos Turno:</span>
-                            <span id="resumen-descuentos" class="fw-bold text-dark">$U 0.00</span>
-                        </div>
-                        <hr class="my-1">
-                        <div class="d-flex justify-content-between align-items-center bg-success bg-opacity-10 p-1 rounded">
-                            <span class="fw-bold text-success">Caja Efectivo Físico Actual:</span>
-                            <span id="resumen-caja-fisica" class="fw-bold text-success fs-6">$U 0.00</span>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- COLUMNA DERECHA: Venta Actual (Carrito) y Acciones de Pago -->
-            <div class="col-lg-6 col-md-12">
-                <div class="card shadow-sm border-dark h-100">
-                    <div class="card-header bg-dark text-white py-1 d-flex justify-content-between align-items-center">
-                        <span class="small fw-bold"><i class="fas fa-shopping-basket me-1"></i>Venta Actual</span>
-                        <span class="badge bg-secondary" id="badge-cajero-actual" style="font-size: 11px;">Cajero: Ninguno</span>
-                    </div>
-                    <div class="card-body p-2 d-flex flex-column justify-content-between" style="min-height: 420px;">
                         
-                        <!-- Lista de productos en el carrito -->
-                        <div class="table-responsive mb-2" style="max-height: 250px; overflow-y: auto;">
-                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 12px;">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th>Artículo</th>
-                                        <th class="text-center" style="width: 70px;">Cant.</th>
-                                        <th class="text-end">Subtotal</th>
-                                        <th class="text-center" style="width: 30px;"><i class="fas fa-trash"></i></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabla-carrito-cuerpo">
-                                    <tr>
-                                        <td colspan="4" class="text-center text-muted py-4">El carrito está vacío</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <!-- CONTENEDOR DEL CATÁLOGO QUE FALTABA MOSTRAR -->
+                        <div class="border rounded p-2 bg-white flex-grow-1 overflow-auto" style="max-height: 480px;" id="lista-catalogo-general">
+                            <!-- Se inyecta dinámicamente desde JS -->
                         </div>
-
-                        <!-- Sección de Totales y Pagos -->
-                        <div>
-                            <!-- Descuento general de venta -->
-                            <div class="input-group input-group-sm mb-2">
-                                <span class="input-group-text bg-light text-muted" style="font-size: 11px;">Descuento ($U o %)</span>
-                                <input type="number" id="input-descuento-venta" class="form-control" placeholder="0" onkeyup="calcularTotalesCarrito()">
-                                <button class="btn btn-outline-secondary" type="button" onclick="aplicarDescuentoPorcentaje()">%</button>
-                            </div>
-
-                            <!-- Totales a Pagar -->
-                            <div class="bg-light p-2 rounded mb-2 border">
-                                <div class="d-flex justify-content-between small text-muted">
-                                    <span>Subtotal:</span>
-                                    <span id="txt-subtotal-carrito">$U 0.00</span>
-                                </div>
-                                <div class="d-flex justify-content-between small text-danger">
-                                    <span>Descuento Aplicado:</span>
-                                    <span id="txt-descuento-carrito">-$U 0.00</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top">
-                                    <span class="fw-bold fs-6">TOTAL A PAGAR:</span>
-                                    <span id="txt-total-carrito" class="fw-bold fs-5 text-primary">$U 0.00</span>
-                                </div>
-                            </div>
-
-                            <!-- Opciones de Forma de Pago -->
-                            <label class="form-label text-muted small fw-bold mb-1">Forma de Pago:</label>
-                            <div class="row g-1 mb-2">
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="opciones-pago" id="pago-efe" value="Efectivo" checked autocomplete="off">
-                                    <label class="btn btn-outline-success btn-sm w-100 py-1" style="font-size: 11px;" for="pago-efe"><i class="fas fa-money-bill-wave me-1"></i>Efectivo</label>
-                                </div>
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="opciones-pago" id="pago-trans" value="Transferencia" autocomplete="off">
-                                    <label class="btn btn-outline-primary btn-sm w-100 py-1" style="font-size: 11px;" for="pago-trans"><i class="fas fa-exchange-alt me-1"></i>Transferencia</label>
-                                </div>
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="opciones-pago" id="pago-deb" value="Débito" autocomplete="off">
-                                    <label class="btn btn-outline-info btn-sm w-100 py-1" style="font-size: 11px;" for="pago-deb"><i class="fas fa-credit-card me-1"></i>Débito</label>
-                                </div>
-                            </div>
-
-                            <!-- Botones de Acción de Venta -->
-                            <div class="row g-1">
-                                <div class="col-4">
-                                    <button class="btn btn-outline-danger btn-sm w-100 fw-bold py-1" style="font-size: 11px;" onclick="cancelarVenta()"><i class="fas fa-ban me-1"></i>Cancelar</button>
-                                </div>
-                                <div class="col-8">
-                                    <button class="btn btn-success btn-sm w-100 fw-bold py-1 shadow-sm" style="font-size: 12px;" onclick="cobrarVenta()"><i class="fas fa-check-circle me-1"></i>Cobrar Venta</button>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
             </div>
 
+            <!-- Columna Derecha: Carrito y Cobro -->
+            <div class="col-md-7">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body d-flex flex-column p-3">
+                        <h6 class="fw-bold mb-2 text-secondary"><i class="fas fa-shopping-basket me-1"></i>Carrito de Venta</h6>
+                        
+                        <div class="flex-grow-1 border rounded bg-white overflow-auto mb-2" style="max-height: 250px;">
+                            <ul class="list-group list-group-flush small" id="cart-items">
+                                <li class="list-group-item text-center text-muted py-3">El carrito está vacío</li>
+                            </ul>
+                        </div>
+
+                        <!-- Métodos de Pago -->
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold mb-1">Método de Pago (Carnes aplica 10% desc. en Efectivo/Transferencia):</label>
+                            <div class="btn-group w-100 btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="btnradio_pago" id="pago-efectivo" value="Efectivo" checked autocomplete="off" onchange="actualizarMetodoPago()">
+                                <label class="btn btn-outline-success" for="pago-efectivo">Efectivo</label>
+
+                                <input type="radio" class="btn-check" name="btnradio_pago" id="pago-transf" value="Transferencia" autocomplete="off" onchange="actualizarMetodoPago()">
+                                <label class="btn btn-outline-primary" for="pago-transf">Transferencia</label>
+
+                                <input type="radio" class="btn-check" name="btnradio_pago" id="pago-debito" value="Debito" autocomplete="off" onchange="actualizarMetodoPago()">
+                                <label class="btn btn-outline-info" for="pago-debito">Débito</label>
+                            </div>
+                        </div>
+
+                        <!-- Resumen de Totales -->
+                        <div class="bg-light p-2 rounded small mb-2">
+                            <div class="d-flex justify-content-between"><span>Subtotal:</span><strong id="cart-subtotal">$U 0.00</strong></div>
+                            <div class="d-flex justify-content-between text-success"><span>Descuento Carnes (10%):</span><strong id="cart-descuento-monto">-$U 0.00</strong></div>
+                            <hr class="my-1">
+                            <div class="d-flex justify-content-between fs-6 fw-bold"><span>Total a Pagar:</span><span id="cart-total" class="text-danger">$U 0.00</span></div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success w-100 py-2 fw-bold" onclick="cobrarVenta()"><i class="fas fa-check-circle me-1"></i> Cobrar Venta</button>
+                        </div>
+
+                        <!-- Resumen del Turno Actual -->
+                        <div class="mt-3 pt-2 border-top small text-muted">
+                            <div class="d-flex justify-content-between">
+                                <span>Turno: <strong id="label-horario-turno" class="text-dark">Sin Turno</strong></span>
+                                <span id="contador-ventas-turno" class="badge bg-secondary">0 Ventas</span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span>Efe: <strong id="resumen-efectivo" class="text-success">$U 0</strong></span>
+                                <span>Trans: <strong id="resumen-transf" class="text-primary">$U 0</strong></span>
+                                <span>Déb: <strong id="resumen-debito" class="text-info">$U 0</strong></span>
+                                <span>Caja Física: <strong id="resumen-fondo-caja" class="text-dark">$U 0</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-<!-- ================= MODALES ================= -->
-    <div class="modal fade" id="modalTurno" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
-            <div class="modal-header bg-warning py-2"><h6 class="modal-title fw-bold">Iniciar Turno / Caja</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body small">
-                <label class="form-label text-muted mb-1">Horario de Turno:</label>
-                <select id="select-horario-turno" class="form-select form-select-sm mb-2">
-                    <option value="09:00 - 13:00">Turno Mañana (09:00 a 13:00)</option>
-                    <option value="17:00 - 21:00">Turno Tarde (17:00 a 21:00)</option>
-                </select>
 
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <label class="form-label text-muted m-0">Cajero:</label>
-                    <button class="btn btn-link btn-sm p-0 text-decoration-none fw-bold" style="font-size: 11px;" onclick="abrirModalCrearUsuario()"><i class="fas fa-user-plus me-1"></i>Registrar Cajero</button>
+    <!-- VISTA DASHBOARD / ADMIN -->
+    <div id="view-dashboard" class="container-fluid py-3" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="fas fa-tachometer-alt text-primary me-2"></i>Panel de Administración y Estadísticas</h4>
+            <div class="d-flex gap-2">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary active" id="btn-filtro-hoy" onclick="cambiarFiltroTemporal('hoy')">Hoy</button>
+                    <button class="btn btn-outline-secondary" id="btn-filtro-semana" onclick="cambiarFiltroTemporal('semana')">Semana</button>
+                    <button class="btn btn-outline-secondary" id="btn-filtro-mes" onclick="cambiarFiltroTemporal('mes')">Mes</button>
+                    <button class="btn btn-outline-secondary" id="btn-filtro-historico" onclick="cambiarFiltroTemporal('historico')">Histórico</button>
                 </div>
-                <select id="select-cajero-registrado" class="form-select form-select-sm mb-2" onchange="seleccionarCajeroLista(this.value)"></select>
-                <input type="hidden" id="input-cajero-nombre">
+                <button class="btn btn-secondary btn-sm" onclick="switchTab('pos')"><i class="fas fa-arrow-left me-1"></i>Volver al POS</button>
+            </div>
+        </div>
 
-                <label class="form-label text-muted mb-1">PIN Cajero:</label>
-                <input type="password" id="input-cajero-pin" class="form-control form-control-sm mb-2" placeholder="PIN de seguridad">
-                
-                <label class="form-label text-muted mb-1">Fondo Inicial (Plata en Caja): *</label>
-                <input type="number" id="input-fondo-inicial" class="form-control form-control-sm" placeholder="Ej. 2000.00" step="0.01">
-            </div>
-            <div class="modal-footer py-1">
-                <button class="btn btn-success btn-sm w-100 fw-bold" onclick="iniciarTurnoCajero()">Comenzar Turno</button>
-            </div>
-        </div></div>
-    </div>
+        <!-- Tarjetas Metricas -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-success border-4"><small class="text-muted">Total Efectivo</small><h4 id="admin-total-efe" class="fw-bold text-success mb-0">$U 0</h4></div></div>
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-info border-4"><small class="text-muted">Total Débito</small><h4 id="admin-total-deb" class="fw-bold text-info mb-0">$U 0</h4></div></div>
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-primary border-4"><small class="text-muted">Total Transferencia</small><h4 id="admin-total-tra" class="fw-bold text-primary mb-0">$U 0</h4></div></div>
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-danger border-4"><small class="text-muted">Gastos / Compras</small><h4 id="admin-total-gastos" class="fw-bold text-danger mb-0">$U 0</h4></div></div>
+        </div>
 
-    <div class="modal fade" id="modalCrearUsuario" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
-            <div class="modal-header bg-primary text-white py-2"><h6 class="modal-title fw-bold">Registrar Nuevo Cajero</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body small">
-                <label class="form-label text-muted mb-1">Nombre del Cajero:</label>
-                <input type="text" id="nuevo-cajero-nombre" class="form-control form-control-sm mb-2" placeholder="Ej. Carlos Gómez">
-                <label class="form-label text-muted mb-1">PIN de Seguridad (numérico):</label>
-                <input type="password" id="nuevo-cajero-pin" class="form-control form-control-sm" placeholder="Ej. 5678">
-            </div>
-            <div class="modal-footer py-1">
-                <button class="btn btn-primary btn-sm w-100 fw-bold" onclick="guardarNuevoCajero()">Guardar Cajero</button>
-            </div>
-        </div></div>
-    </div>
+        <!-- Gráficas -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-4"><div class="card p-3 shadow-sm h-100"><h6 class="text-center text-secondary">Métodos de Pago vs Gastos</h6><div style="height: 220px;"><canvas id="chartVentasGastos"></canvas></div></div></div>
+            <div class="col-md-4"><div class="card p-3 shadow-sm h-100"><h6 class="text-center text-secondary">Top Cortes Más Ingresos ($U)</h6><div style="height: 220px;"><canvas id="chartCortes"></canvas></div></div></div>
+            <div class="col-md-4"><div class="card p-3 shadow-sm h-100"><h6 class="text-center text-secondary">Kilos Vendidos por Corte</h6><div style="height: 220px;"><canvas id="chartKilos"></canvas></div></div></div>
+        </div>
 
-    <div class="modal fade" id="modalCompras" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
-            <div class="modal-header bg-info text-white py-2"><h6 class="modal-title fw-bold">Registrar Compra / Proveedor</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body small">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <label class="form-label text-muted m-0">Proveedor:</label>
-                    <button class="btn btn-link btn-sm p-0 text-decoration-none fw-bold" style="font-size: 11px;" onclick="abrirModalCrearProveedor()"><i class="fas fa-plus-circle me-1"></i>Registrar Proveedor</button>
-                </div>
-                <select id="select-proveedor-registrado" class="form-select form-select-sm mb-2" onchange="seleccionarProveedorLista(this.value)"></select>
-                <input type="hidden" id="input-compra-proveedor">
-
-                <label class="form-label text-muted mb-1">Monto Pagado ($U):</label>
-                <input type="number" id="input-compra-monto" class="form-control form-control-sm mb-2" placeholder="0.00" step="0.01">
-
-                <label class="form-label text-muted mb-1">Forma de Pago:</label>
-                <select id="select-compra-pago" class="form-select form-select-sm">
-                    <option value="Efectivo">Efectivo (Descuenta de Caja)</option>
-                    <option value="Transferencia">Transferencia (Registro Digital)</option>
-                </select>
-            </div>
-            <div class="modal-footer py-1">
-                <button class="btn btn-info text-white btn-sm w-100 fw-bold" onclick="registrarCompraProveedor()">Guardar Compra</button>
-            </div>
-        </div></div>
-    </div>
-
-    <div class="modal fade" id="modalCrearProveedor" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
-            <div class="modal-header bg-info text-white py-2"><h6 class="modal-title fw-bold">Registrar Nuevo Proveedor</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body small">
-                <label class="form-label text-muted mb-1">Nombre del Proveedor:</label>
-                <input type="text" id="nuevo-proveedor-nombre" class="form-control form-control-sm" placeholder="Ej. Frigorífico del Norte">
-            </div>
-            <div class="modal-footer py-1">
-                <button class="btn btn-info text-white btn-sm w-100 fw-bold" onclick="guardarNuevoProveedor()">Guardar Proveedor</button>
-            </div>
-        </div></div>
-    </div>
-
-    <div class="modal fade" id="modalCierreCaja" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-            <div class="modal-header bg-danger text-white py-2">
-                <h6 class="modal-title fw-bold"><i class="fas fa-lock me-1"></i> Resumen de Cierre de Caja (Turno)</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body small">
-                <div class="border-bottom pb-2 mb-2">
-                    <div class="d-flex justify-content-between text-muted mb-1">
-                        <span>Fondo Inicial en Caja:</span>
-                        <span id="cierre-fondo-inicial" class="fw-bold">$U 0.00</span>
+        <!-- Tablas de Gestión (Inventario, Transacciones, Cierres) -->
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card p-3 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0">Inventario de Artículos (Carnicería)</h6>
+                        <button class="btn btn-sm btn-dark" onclick="abrirModalNuevoProducto()"><i class="fas fa-plus me-1"></i>Nuevo Artículo</button>
                     </div>
-                    <div class="d-flex justify-content-between text-success mb-1">
-                        <span>Total Ventas en Efectivo (Turno):</span>
-                        <span id="cierre-ventas-efe" class="fw-bold">$U 0.00</span>
-                    </div>
-                    <div class="d-flex justify-content-between text-danger mb-1">
-                        <span>Total Compras/Gastos en Efectivo (Turno):</span>
-                        <span id="cierre-compras-efe" class="fw-bold">-$U 0.00</span>
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-sm table-striped text-center align-middle" style="font-size: 12px;">
+                            <thead><tr><th>Cód</th><th>Nombre</th><th>Categoría</th><th>Precio ($U)</th><th>Acciones</th></tr></thead>
+                            <tbody id="tabla-admin-productos"></tbody>
+                        </table>
                     </div>
                 </div>
-
-                <div class="border-bottom pb-2 mb-2">
-                    <div class="d-flex justify-content-between text-primary mb-1">
-                        <span>Total Ventas Transferencia (Turno):</span>
-                        <span id="cierre-ventas-trans" class="fw-bold">$U 0.00</span>
-                    </div>
-                    <div class="d-flex justify-content-between text-info mb-1">
-                        <span>Total Ventas Tarjeta / Débito (Turno):</span>
-                        <span id="cierre-ventas-deb" class="fw-bold">$U 0.00</span>
-                    </div>
-                    <div class="d-flex justify-content-between text-warning text-dark mb-1">
-                        <span>Total Descuentos Aplicados (Turno):</span>
-                        <span id="cierre-descuentos" class="fw-bold">$U 0.00</span>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3 shadow-sm">
+                    <h6 class="fw-bold mb-2">Desglose de Kilos Vendidos (Stock)</h6>
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-sm table-striped text-center align-middle" style="font-size: 12px;">
+                            <thead><tr><th>Cód</th><th>Corte / Artículo</th><th>Categoría</th><th>Total Kilos/Un</th></tr></thead>
+                            <tbody id="tabla-admin-kilos"></tbody>
+                        </table>
                     </div>
                 </div>
-
-                <div class="bg-success bg-opacity-10 p-2 rounded border border-success text-center">
-                    <span class="text-muted d-block small fw-bold">TOTAL DEFINITIVO EFECTIVO FÍSICO EN CAJA:</span>
-                    <h3 id="cierre-total-txt" class="text-success fw-bold m-0">$U 0.00</h3>
-                </div>
             </div>
-            <div class="modal-footer py-2">
-                <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-danger btn-sm fw-bold px-4" onclick="confirmarCierreCaja()">Confirmar Cierre (Historial Permanece)</button>
-            </div>
-        </div></div>
+        </div>
     </div>
 
-    <div class="modal fade" id="modalAdmin" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
-            <div class="modal-header bg-dark text-white py-2"><h6 class="modal-title fw-bold">Admin (PIN: 6272)</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
-                <input type="password" id="input-admin-pass" class="form-control form-control-sm" placeholder="Ingrese PIN admin">
-            </div>
-            <div class="modal-footer py-1">
-                <button class="btn btn-dark btn-sm w-100 fw-bold" onclick="verificarAccesoAdmin()">Entrar</button>
-            </div>
-        </div></div>
-    </div>
+    <!-- MODAL TURNO -->
+    <div class="modal fade" id="modalTurno" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Iniciar Turno de Caja</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Horario de Turno:</label><select id="select-horario-turno" class="form-select form-select-sm"><option value="Mañana">Mañana (07:00 - 14:00)</option><option value="Tarde">Tarde (14:00 - 21:00)</option><option value="Noche">Noche (21:00 - 02:00)</option></select></div>
+        <div class="mb-2"><label class="form-label small">Cajero:</label><input type="text" id="input-cajero-nombre" class="form-control form-select-sm mb-1" readonly><select id="select-cajero-registrado" class="form-select form-select-sm" onchange="seleccionarCajeroLista(this.value)"></select></div>
+        <div class="mb-2"><label class="form-label small">PIN de Cajero:</label><input type="password" id="input-cajero-pin" class="form-control form-control-sm" placeholder="Ingrese PIN"></div>
+        <div class="mb-2"><label class="form-label small">Fondo Inicial ($U):</label><input type="number" id="input-fondo-inicial" class="form-control form-control-sm" placeholder="Ej. 2000"></div>
+        <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="abrirModalCrearUsuario()">Registrar Nuevo Cajero</button>
+    </div><div class="modal-footer"><button class="btn btn-primary btn-sm" onclick="iniciarTurnoCajero()">Iniciar Turno</button></div></div></div></div>
 
-    <div class="modal fade" id="modalProducto" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
-            <div class="modal-header bg-danger text-white py-2">
-                <h6 class="modal-title fw-bold" id="titulo-modal-producto">Artículo</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body small">
-                <input type="hidden" id="prod-editando-codigo" value="">
-                <label class="form-label text-muted mb-1">Código:</label>
-                <input type="text" id="prod-codigo" class="form-control form-control-sm mb-2" placeholder="Código">
-                
-                <label class="form-label text-muted mb-1">Nombre / Corte:</label>
-                <input type="text" id="prod-nombre" class="form-control form-control-sm mb-2" placeholder="Nombre">
-                
-                <label class="form-label text-muted mb-1">Categoría:</label>
-                <select id="prod-categoria" class="form-select form-select-sm mb-2">
-                    <option value="Carnes">Carnes</option>
-                    <option value="Bebidas">Bebidas</option>
-                    <option value="Almacén">Almacén</option>
-                </select>
-                
-                <label class="form-label text-muted mb-1">Precio ($U):</label>
-                <input type="number" id="prod-precio" class="form-control form-control-sm" placeholder="Precio ($U)" step="0.01">
-            </div>
-            <div class="modal-footer py-1">
-                <button class="btn btn-danger btn-sm w-100 fw-bold" onclick="guardarProductoAdmin()">Guardar Artículo</button>
-            </div>
-        </div></div>
-    </div>
+    <!-- MODAL NUEVO USUARIO -->
+    <div class="modal fade" id="modalCrearUsuario" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header"><h5 class="modal-title fs-6">Nuevo Cajero</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Nombre:</label><input type="text" id="nuevo-cajero-nombre" class="form-control form-control-sm"></div>
+        <div class="mb-2"><label class="form-label small">PIN (Contraseña):</label><input type="password" id="nuevo-cajero-pin" class="form-control form-control-sm"></div>
+    </div><div class="modal-footer"><button class="btn btn-success btn-sm w-100" onclick="guardarNuevoCajero()">Guardar Cajero</button></div></div></div></div>
 
-    <div class="modal fade" id="modalAlerta" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content text-center">
-            <div class="modal-body py-3">
-                <p id="texto-alerta-personalizada" class="fw-bold small mb-0"></p>
-            </div>
-            <div class="modal-footer py-1 justify-content-center">
-                <button class="btn btn-dark btn-sm px-4" data-bs-dismiss="modal">Aceptar</button>
-            </div>
-        </div></div>
-    </div>
+    <!-- MODAL COMPRAS -->
+    <div class="modal fade" id="modalCompras" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Registrar Gasto / Compra a Proveedor</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Proveedor:</label><input type="text" id="input-compra-proveedor" class="form-control form-control-sm mb-1" readonly><select id="select-proveedor-registrado" class="form-select form-select-sm" onchange="seleccionarProveedorLista(this.value)"></select></div>
+        <div class="mb-2"><label class="form-label small">Monto ($U):</label><input type="number" id="input-compra-monto" class="form-control form-control-sm" placeholder="Ej. 15500"></div>
+        <div class="mb-2"><label class="form-label small">Forma de Pago del Gasto:</label><select id="select-compra-pago" class="form-select form-select-sm"><option value="Efectivo">Efectivo (Resta caja física)</option><option value="Transferencia">Transferencia</option></select></div>
+        <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="abrirModalCrearProveedor()">Registrar Nuevo Proveedor</button>
+    </div><div class="modal-footer"><button class="btn btn-warning btn-sm" onclick="registrarCompraProveedor()">Guardar Compra</button></div></div></div></div>
 
-    <!-- Scripts Bootstrap -->
+    <!-- MODAL NUEVO PROVEEDOR -->
+    <div class="modal fade" id="modalCrearProveedor" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header"><h5 class="modal-title fs-6">Nuevo Proveedor</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Nombre del Proveedor:</label><input type="text" id="nuevo-proveedor-nombre" class="form-control form-control-sm"></div>
+    </div><div class="modal-footer"><button class="btn btn-success btn-sm w-100" onclick="guardarNuevoProveedor()">Guardar</button></div></div></div></div>
+
+    <!-- MODAL CIERRE DE CAJA -->
+    <div class="modal fade" id="modalCierreCaja" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Cierre de Caja del Turno</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body small">
+        <div class="d-flex justify-content-between"><span>Fondo Inicial:</span><span id="cierre-fondo-inicial">$U 0</span></div>
+        <div class="d-flex justify-content-between"><span>(+) Ventas Efectivo:</span><span id="cierre-ventas-efe" class="text-success">$U 0</span></div>
+        <div class="d-flex justify-content-between"><span>(-) Compras en Efectivo:</span><span id="cierre-compras-efe" class="text-danger">$U 0</span></div>
+        <div class="d-flex justify-content-between"><span>(+) Ventas Transferencia:</span><span id="cierre-ventas-trans">$U 0</span></div>
+        <div class="d-flex justify-content-between"><span>(+) Ventas Débito:</span><span id="cierre-ventas-deb">$U 0</span></div>
+        <div class="d-flex justify-content-between text-muted"><span>Total Descuentos Carnicería:</span><span id="cierre-descuentos">$U 0</span></div>
+        <hr>
+        <div class="d-flex justify-content-between fw-bold fs-6"><span>Efectivo Esperado en Caja Física:</span><span id="cierre-total-txt" class="text-danger">$U 0</span></div>
+    </div><div class="modal-footer"><button class="btn btn-danger btn-sm" onclick="confirmarCierreCaja()">Confirmar Cierre de Turno</button></div></div></div></div>
+
+    <!-- MODAL ADMIN LOGIN -->
+    <div class="modal fade" id="modalAdmin" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header"><h5 class="modal-title fs-6">Acceso Administrador</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">PIN Administrador:</label><input type="password" id="input-admin-pass" class="form-control form-control-sm" placeholder="PIN (6272)"></div>
+    </div><div class="modal-footer"><button class="btn btn-info btn-sm w-100 text-white" onclick="verificarAccesoAdmin()">Entrar al Dashboard</button></div></div></div></div>
+
+    <!-- MODAL PRODUCTO -->
+    <div class="modal fade" id="modalProducto" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header"><h5 class="modal-title fs-6" id="titulo-modal-producto">Artículo</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <input type="hidden" id="prod-editando-codigo">
+        <div class="mb-2"><label class="form-label small">Código:</label><input type="text" id="prod-codigo" class="form-control form-control-sm"></div>
+        <div class="mb-2"><label class="form-label small">Nombre del Corte:</label><input type="text" id="prod-nombre" class="form-control form-control-sm"></div>
+        <div class="mb-2"><label class="form-label small">Categoría:</label><input type="text" id="prod-categoria" class="form-control form-control-sm" value="Carnicería" readonly></div>
+        <div class="mb-2"><label class="form-label small">Precio por Kilo/Un ($U):</label><input type="number" id="prod-precio" class="form-control form-control-sm"></div>
+    </div><div class="modal-footer"><button class="btn btn-success btn-sm w-100" onclick="guardarProductoAdmin()">Guardar Artículo</button></div></div></div></div>
+
+    <!-- MODAL ALERTA GENÉRICA -->
+    <div class="modal fade" id="modalAlerta" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content text-center p-3"><div class="mb-2"><i class="fas fa-info-circle text-primary fa-2x"></i></div><p id="texto-alerta-personalizada" class="small mb-3">Mensaje</p><button class="btn btn-dark btn-sm" data-bs-dismiss="modal">Aceptar</button></div></div></div>
+
+    <!-- Bootstrap JS y Script Principal -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
 </body>
-                    </html>
+</html>
+    
