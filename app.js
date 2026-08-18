@@ -156,8 +156,55 @@ function procesarCodigoBarras() {
     }
 }
 
-function agregarAlCarritoDirecto(codigo) {
-    agregarAlCarritoConCantidad(codigo, 1);
+// Función mejorada para agregar productos al carrito admitiendo fracciones de kilo o montos en dinero
+function agregarAlCarritoPorCodigoOMenu(codigo) {
+    let producto = productosInventario.find(p => p.codigo === codigo);
+    if (!producto) return;
+
+    // Preguntamos al cajero qué desea ingresar (puede ingresar el monto en dinero ej: 250, o los kilos ej: 0.800)
+    let entrada = prompt(`Artículo: ${producto.nombre}\nPrecio por Kg: $U ${producto.precio}\n\nIngrese el MONTO en dinero ($U) o los KILOS exactos (ej: 0.750):`, "1");
+    
+    if (entrada === null) return; // Si cancela
+    let valorIngresado = parseFloat(entrada.replace(',', '.'));
+
+    if (isNaN(valorIngresado) || valorIngresado <= 0) {
+        alert("Por favor, ingrese un valor válido.");
+        return;
+    }
+
+    let cantidadKilos = 0;
+    let subtotalItem = 0;
+
+    // Lógica inteligente: Si el número es mayor a 10 (por ejemplo), asumimos que es dinero ($U), 
+    // de lo contrario si es menor o igual a 10, asumimos que son kilos directos (ej: 0.5 kg, 1.2 kg).
+    // O bien, puedes ajustar este umbral según tu operativa habitual.
+    if (valorIngresado > 10 && producto.precio > 0) {
+        // Ingresó dinero (Ej: $U 300 de carne)
+        subtotalItem = valorIngresado;
+        cantidadKilos = subtotalItem / producto.precio;
+    } else {
+        // Ingresó kilos directamente (Ej: 0.800 kg)
+        cantidadKilos = valorIngresado;
+        subtotalItem = cantidadKilos * producto.precio;
+    }
+
+    // Buscamos si ya está en el carrito para sumarlo, o lo agregamos como nueva línea
+    let itemExistente = carrito.find(item => item.codigo === codigo);
+    if (itemExistente) {
+        itemExistente.kilos += cantidadKilos;
+        itemExistente.subtotal += subtotalItem;
+    } else {
+        carrito.push({
+            codigo: producto.codigo,
+            nombre: producto.nombre,
+            categoria: producto.categoria,
+            precioUnitario: producto.precio,
+            kilos: cantidadKilos,
+            subtotal: subtotalItem
+        });
+    }
+
+    actualizarVistaCarrito();
 }
 
 function agregarAlCarritoConCantidad(codigo, cantidad) {
