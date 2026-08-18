@@ -226,9 +226,56 @@ function procesarCodigoBarras() {
     const valor = input.value.trim();
     if (!valor) return;
 
-    let producto = productosInventario.find(p => p.codigo === valor || p.nombre.toLowerCase().includes(valor.toLowerCase()));
+    let codigoBuscado = valor;
+    let kilosDetectados = null;
+
+    // Detectar si es un código de barras de balanza (empieza con '2' y tiene longitud típica ej. 13 dígitos)
+    if (valor.startsWith('2') && valor.length >= 12) {
+        // Estándar común de balanzas: 
+        // Posición 0: prefijo '2'
+        // Posiciones 1 a 5 (5 dígitos): Código del producto (ej: '00002')
+        // Posiciones 6 a 11 (6 dígitos): Precio total o peso codificado
+        let codigoProdBruto = valor.substring(1, 6);
+        codigoBuscado = String(parseInt(codigoProdBruto, 10)); // Elimina ceros a la izquierda para coincidir con el inventario (ej: "2")
+
+        let producto = productosInventario.find(p => p.codigo === codigoBuscado);
+        if (producto && producto.precio > 0) {
+            // Los siguientes dígitos usualmente contienen el precio total en centavos o el peso. 
+            // Suponiendo que los últimos dígitos representan el importe total cobrado en la balanza:
+            let valorMontoBruto = parseFloat(valor.substring(6, 12)) / 100; 
+            if (valorMontoBruto > 0) {
+                kilosDetectados = valorMontoBruto / producto.precio;
+            }
+        }
+    }
+
+    let producto = productosInventario.find(p => p.codigo === codigoBuscado || p.nombre.toLowerCase().includes(valor.toLowerCase()));
+    
     if (producto) {
-        agregarAlCarritoPorCodigoOMenu(producto.codigo);
+        if (kilosDetectados !== null && kilosDetectados > 0) {
+            // Si se leyó directo de la balanza, lo agregamos calculando sus kilos exactos sin abrir ventanas
+            let subtotalItem = kilosDetectados * producto.precio;
+            
+            let itemExistente = carrito.find(item => item.codigo === producto.codigo);
+            if (itemExistente) {
+                itemExistente.kilos += kilosDetectados;
+                itemExistente.subtotal += subtotalItem;
+            } else {
+                carrito.push({
+                    codigo: producto.codigo,
+                    nombre: producto.nombre,
+                    categoria: producto.categoria,
+                    precioUnitario: producto.precio,
+                    kilos: kilosDetectados,
+                    subtotal: subtotalItem
+                });
+            }
+            actualizarVistaCarrito();
+        } else {
+            // Si es un código común o manual, usa la función de menú/precio
+            agregarAlCarritoPorCodigoOMenu(producto.codigo);
+        }
+        
         input.value = '';
         filtrarCatalogoRapido('');
     } else {
