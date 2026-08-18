@@ -3,127 +3,454 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Caja - Créditos</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1, h2 { color: #2c3e50; }
-        .form-group { margin-bottom: 15px; display: flex; gap: 10px; }
-        input, button { padding: 10px; font-size: 16px; }
-        input { flex: 1; border: 1px solid #ccc; border-radius: 4px; }
-        button { background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background-color: #219653; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #f8f9fa; }
-        .btn-pagar { background-color: #2980b9; }
-        .btn-pagar:hover { background-color: #1f618d; }
-    </style>
+    <title>MiniPOS - Carnicería</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js para gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="bg-light">
 
-<div class="container">
-    <h1>Sistema de Caja</h1>
-    
-    <!-- Sección de Créditos -->
-    <div id="seccion-creditos">
-        <h2>Gestión de Créditos y Fiados</h2>
-        
-        <div class="form-group">
-            <input type="text" id="nombreCliente" placeholder="Nombre del cliente">
-            <input type="number" id="deudaInicial" placeholder="Deuda total inicial ($)">
-            <button onclick="agregarCliente()">Agregar Cliente</button>
+    <!-- NAVBAR / HEADER -->
+    <nav class="navbar navbar-dark bg-dark px-3 py-2">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1"><i class="fas fa-drumstick-bite text-danger me-2"></i>MiniPOS Carnicería</span>
+            <div class="d-flex align-items-center gap-2 wrap">
+                <span id="label-cajero-actual" class="text-white small fw-bold me-2">Cajero: Ninguno</span>
+                <button class="btn btn-outline-light btn-sm" onclick="abrirModalTurno()"><i class="fas fa-user-clock me-1"></i>Turno</button>
+                <button class="btn btn-outline-warning btn-sm" onclick="abrirModalCompras()"><i class="fas fa-shopping-cart me-1"></i>Compras</button>
+                <!-- BOTÓN DE CRÉDITOS / FIADOS INTEGRADO -->
+                <button class="btn btn-outline-primary btn-sm" onclick="abrirModalCreditos()"><i class="fas fa-address-book me-1"></i>Créditos</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="abrirModalCierreCaja()"><i class="fas fa-cash-register me-1"></i>Cierre</button>
+                <button class="btn btn-outline-info btn-sm" onclick="verAdmin()"><i class="fas fa-chart-line me-1"></i>Admin</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- VISTA PRINCIPAL (POS) -->
+    <div id="view-pos" class="container-fluid py-3">
+        <div class="row g-3">
+            <!-- Columna Izquierda: Búsqueda, Catálogo y Carrito / Cobro -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body d-flex flex-column p-3">
+                        <h6 class="fw-bold mb-2 text-secondary"><i class="fas fa-search me-1"></i>Búsqueda y Catálogo (3 visibles)</h6>
+                        <div class="input-group mb-2">
+                            <input type="text" id="input-buscar-articulo" class="form-control form-control-sm" placeholder="Código, nombre o etiqueta de balanza..." oninput="filtrarCatalogoRapido(this.value)" onkeydown="manejarEnterEscanner(event)">
+                            <button class="btn btn-dark btn-sm" type="button" onclick="procesarCodigoBarras()"><i class="fas fa-barcode"></i></button>
+                        </div>
+                        
+                        <!-- Catálogo limitado a una altura para mostrar aprox 3 productos -->
+                        <div class="border rounded p-2 bg-white overflow-auto mb-3" style="max-height: 180px;" id="lista-catalogo-general">
+                            <!-- Se inyecta dinámicamente desde JS -->
+                        </div>
+
+                        <h6 class="fw-bold mb-2 text-secondary"><i class="fas fa-shopping-basket me-1"></i>Carrito de Venta</h6>
+                        <div class="border rounded bg-white overflow-auto mb-2" style="max-height: 150px;">
+                            <ul class="list-group list-group-flush small" id="cart-items">
+                                <li class="list-group-item text-center text-muted py-2">El carrito está vacío</li>
+                            </ul>
+                        </div>
+
+                        <!-- Métodos de Pago -->
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold mb-1">Método de Pago (Carnes aplica 10% desc. en Efectivo/Transferencia):</label>
+                            <div class="btn-group w-100 btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="btnradio_pago" id="pago-efectivo" value="Efectivo" checked autocomplete="off" onchange="actualizarMetodoPago()">
+                                <label class="btn btn-outline-success" for="pago-efectivo">Efectivo</label>
+
+                                <input type="radio" class="btn-check" name="btnradio_pago" id="pago-transf" value="Transferencia" autocomplete="off" onchange="actualizarMetodoPago()">
+                                <label class="btn btn-outline-primary" for="pago-transf">Transferencia</label>
+
+                                <input type="radio" class="btn-check" name="btnradio_pago" id="pago-debito" value="Debito" autocomplete="off" onchange="actualizarMetodoPago()">
+                                <label class="btn btn-outline-info" for="pago-debito">Débito</label>
+                            </div>
+                        </div>
+
+                        <!-- Resumen de Totales y Cobro -->
+                        <div class="bg-light p-2 rounded small mb-2">
+                            <div class="d-flex justify-content-between"><span>Subtotal:</span><strong id="cart-subtotal">$U 0.00</strong></div>
+                            <div class="d-flex justify-content-between text-success"><span>Descuento Carnes (10%):</span><strong id="cart-descuento-monto">-$U 0.00</strong></div>
+                            <hr class="my-1">
+                            <div class="d-flex justify-content-between fs-6 fw-bold"><span>Total a Pagar:</span><span id="cart-total" class="text-danger">$U 0.00</span></div>
+                        </div>
+
+                        <button class="btn btn-success w-100 py-2 fw-bold" onclick="cobrarVenta()"><i class="fas fa-check-circle me-1"></i> Cobrar Venta</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Resumen de Turno, Plana Inicial, Compras y Efectivo en Caja -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body d-flex flex-column p-3">
+                        <h6 class="fw-bold mb-3 text-secondary"><i class="fas fa-cash-register me-1"></i>Control de Caja y Turno Actual</h6>
+                        
+                        <!-- Datos de Turno y Cajero -->
+                        <div class="card bg-white border-0 shadow-sm p-3 mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small">Cajero Activo:</span>
+                                <strong id="panel-nombre-cajero" class="text-dark">Ninguno</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Horario de Turno:</span>
+                                <strong id="panel-horario-turno" class="text-dark">Sin Turno</strong>
+                            </div>
+                        </div>
+
+                        <!-- Desglose Financiero de Caja -->
+                        <div class="card bg-light border-0 p-3 mb-3 flex-grow-1">
+                            <h6 class="text-secondary small fw-bold mb-2">Desglose de Movimientos del Turno</h6>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span>Plata / Fondo Inicial:</span>
+                                <strong id="resumen-fondo-inicial" class="text-dark">$U 0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span>(+) Ventas en Efectivo:</span>
+                                <strong id="resumen-ventas-efe" class="text-success">$U 0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span>(-) Compras / Gastos:</span>
+                                <strong id="resumen-compras-efe" class="text-danger">$U 0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span>(+) Ventas en Transferencia:</span>
+                                <strong id="resumen-ventas-trans" class="text-primary">$U 0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span>(+) Ventas en Débito:</span>
+                                <strong id="resumen-ventas-deb" class="text-info">$U 0.00</strong>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between align-items-center mt-auto bg-white p-2 rounded border">
+                                <span class="fw-bold text-dark small">Efectivo Exacto en Caja:</span>
+                                <strong id="resumen-efectivo-caja" class="text-danger fs-5">$U 0.00</strong>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <span id="contador-ventas-turno" class="badge bg-secondary">0 Ventas Registradas en Turno</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA DASHBOARD / ADMIN -->
+    <div id="view-dashboard" class="container-fluid py-3" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="fas fa-tachometer-alt text-primary me-2"></i>Panel de Administración y Estadísticas</h4>
+            <div class="d-flex gap-2">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary active" id="btn-filtro-hoy" onclick="cambiarFiltroTemporal('hoy')">Hoy</button>
+                    <button class="btn btn-outline-secondary" id="btn-filtro-semana" onclick="cambiarFiltroTemporal('semana')">Semana</button>
+                    <button class="btn btn-outline-secondary" id="btn-filtro-mes" onclick="cambiarFiltroTemporal('mes')">Mes</button>
+                    <button class="btn btn-outline-secondary" id="btn-filtro-historico" onclick="cambiarFiltroTemporal('historico')">Histórico</button>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="switchTab('pos')"><i class="fas fa-arrow-left me-1"></i>Volver al POS</button>
+            </div>
         </div>
 
-        <table id="tablaCreditos">
-            <thead>
-                <tr>
-                    <th>Cliente</th>
-                    <th>Deuda Actual</th>
-                    <th>Monto de Entrega</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Los clientes se cargarán aquí automáticamente -->
-            </tbody>
-        </table>
+        <!-- Tarjetas Métricas -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-success border-4"><small class="text-muted">Total Efectivo</small><h4 id="admin-total-efe" class="fw-bold text-success mb-0">$U 0</h4></div></div>
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-info border-4"><small class="text-muted">Total Débito</small><h4 id="admin-total-deb" class="fw-bold text-info mb-0">$U 0</h4></div></div>
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-primary border-4"><small class="text-muted">Total Transferencia</small><h4 id="admin-total-tra" class="fw-bold text-primary mb-0">$U 0</h4></div></div>
+            <div class="col-md-3"><div class="card p-3 shadow-sm border-start border-danger border-4"><small class="text-muted">Gastos / Compras</small><h4 id="admin-total-gastos" class="fw-bold text-danger mb-0">$U 0</h4></div></div>
+        </div>
+
+        <!-- Gráficas con altura fija corregida para visualización completa -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-4"><div class="card p-3 shadow-sm h-100"><h6 class="text-center text-secondary">Métodos de Pago vs Gastos</h6><div class="position-relative" style="height: 250px;"><canvas id="chartVentasGastos"></canvas></div></div></div>
+            <div class="col-md-4"><div class="card p-3 shadow-sm h-100"><h6 class="text-center text-secondary">Top Cortes Más Ingresos ($U)</h6><div class="position-relative" style="height: 250px;"><canvas id="chartCortes"></canvas></div></div></div>
+            <div class="col-md-4"><div class="card p-3 shadow-sm h-100"><h6 class="text-center text-secondary">Kilos Vendidos por Corte</h6><div class="position-relative" style="height: 250px;"><canvas id="chartKilos"></canvas></div></div></div>
+        </div>
+
+        <!-- Tablas de Gestión (Inventario editable y Kilos) -->
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card p-3 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0">Inventario de Artículos (Carnicería)</h6>
+                        <button class="btn btn-sm btn-dark" onclick="abrirModalNuevoProducto()"><i class="fas fa-plus me-1"></i>Nuevo Artículo</button>
+                    </div>
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-sm table-striped text-center align-middle" style="font-size: 12px;">
+                            <thead><tr><th>Cód</th><th>Nombre</th><th>Categoría</th><th>Precio ($U)</th><th>Acciones</th></tr></thead>
+                            <tbody id="tabla-admin-productos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3 shadow-sm">
+                    <h6 class="fw-bold mb-2">Desglose de Kilos Vendidos (Stock)</h6>
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-sm table-striped text-center align-middle" style="font-size: 12px;">
+                            <thead><tr><th>Cód</th><th>Corte / Artículo</th><th>Categoría</th><th>Total Kilos/Un</th></tr></thead>
+                            <tbody id="tabla-admin-kilos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
-<script>
-    let listaCreditos = JSON.parse(localStorage.getItem('creditos')) || [];
+    <!-- MODAL TURNO -->
+    <div class="modal fade" id="modalTurno" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Iniciar Turno de Caja</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Horario de Turno:</label><select id="select-horario-turno" class="form-select form-select-sm"><option value="Mañana">Mañana (07:00 - 14:00)</option><option value="Tarde">Tarde (14:00 - 21:00)</option><option value="Noche">Noche (21:00 - 02:00)</option></select></div>
+        <div class="mb-2"><label class="form-label small">Cajero:</label><input type="text" id="input-cajero-nombre" class="form-control form-select-sm mb-1" readonly><select id="select-cajero-registrado" class="form-select form-select-sm" onchange="seleccionarCajeroLista(this.value)"></select></div>
+        <div class="mb-2"><label class="form-label small">PIN de Cajero:</label><input type="password" id="input-cajero-pin" class="form-control form-control-sm" placeholder="Ingrese PIN"></div>
+        <div class="mb-2"><label class="form-label small">Fondo Inicial ($U):</label><input type="number" id="input-fondo-inicial" class="form-control form-control-sm" placeholder="Ej. 2000"></div>
+        <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="abrirModalCrearUsuario()">Registrar Nuevo Cajero</button>
+    </div><div class="modal-footer"><button class="btn btn-primary btn-sm" onclick="iniciarTurnoCajero()">Iniciar Turno</button></div></div></div></div>
 
-    function guardarYRenderizar() {
-        localStorage.setItem('creditos', JSON.stringify(listaCreditos));
-        renderizarTabla();
-    }
+    <!-- MODAL NUEVO USUARIO -->
+    <div class="modal fade" id="modalCrearUsuario" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header"><h5 class="modal-title fs-6">Nuevo Cajero</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Nombre:</label><input type="text" id="nuevo-cajero-nombre" class="form-control form-control-sm"></div>
+        <div class="mb-2"><label class="form-label small">PIN (Contraseña):</label><input type="password" id="nuevo-cajero-pin" class="form-control form-control-sm"></div>
+    </div><div class="modal-footer"><button class="btn btn-success btn-sm w-100" onclick="guardarNuevoCajero()">Guardar Cajero</button></div></div></div></div>
 
-    function agregarCliente() {
-        const nombre = document.getElementById('nombreCliente').value.trim();
-        const deuda = parseFloat(document.getElementById('deudaInicial').value) || 0;
-        
-        if (!nombre) {
-            alert('Por favor, ingresa el nombre del cliente.');
-            return;
+    <!-- MODAL COMPRAS -->
+    <div class="modal fade" id="modalCompras" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Registrar Gasto / Compra a Proveedor</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Proveedor:</label><input type="text" id="input-compra-proveedor" class="form-control form-select-sm mb-1" readonly><select id="select-proveedor-registrado" class="form-select form-select-sm" onchange="seleccionarProveedorLista(this.value)"></select></div>
+        <div class="mb-2"><label class="form-label small">Monto ($U):</label><input type="number" id="input-compra-monto" class="form-control form-select-sm" placeholder="Ej. 15500"></div>
+        <div class="mb-2"><label class="form-label small">Forma de Pago del Gasto:</label><select id="select-compra-pago" class="form-select form-select-sm"><option value="Efectivo">Efectivo (Resta caja física)</option><option value="Transferencia">Transferencia</option></select></div>
+        <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="abrirModalCrearProveedor()">Registrar Nuevo Proveedor</button>
+    </div><div class="modal-footer"><button class="btn btn-warning btn-sm" onclick="registrarCompraProveedor()">Guardar Compra</button></div></div></div></div>
+
+    <!-- MODAL NUEVO PROVEEDOR -->
+    <div class="modal fade" id="modalCrearProveedor" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header"><h5 class="modal-title fs-6">Nuevo Proveedor</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <div class="mb-2"><label class="form-label small">Nombre del Proveedor:</label><input type="text" id="nuevo-proveedor-nombre" class="form-control form-control-sm"></div>
+    </div><div class="modal-footer"><button class="btn btn-success btn-sm w-100" onclick="guardarNuevoProveedor()">Guardar</button></div></div></div></div>
+
+    <!-- MODAL CIERRE DE CAJA -->
+    <div class="modal fade" id="modalCierreCaja" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cierre de Caja del Turno</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body small">
+                    <div class="d-flex justify-content-between"><span>Fondo Inicial:</span><span id="cierre-fondo-inicial">$U 0</span></div>
+                    <div class="d-flex justify-content-between"><span>(+) Ventas Efectivo:</span><span id="cierre-ventas-efe" class="text-success">$U 0</span></div>
+                    <div class="d-flex justify-content-between"><span>(-) Compras en Efectivo:</span><span id="cierre-compras-efe" class="text-danger">$U 0</span></div>
+                    <div class="d-flex justify-content-between"><span>(+) Ventas Transferencia:</span><span id="cierre-ventas-trans">$U 0</span></div>
+                    <div class="d-flex justify-content-between"><span>(+) Ventas Débito:</span><span id="cierre-ventas-deb">$U 0</span></div>
+                    <div class="d-flex justify-content-between text-muted"><span>Total Descuentos Carnicería:</span><span id="cierre-descuentos">$U 0</span></div>
+                    <hr>
+                    <div class="d-flex justify-content-between fw-bold fs-6"><span>Efectivo Esperado en Caja Física:</span><span id="cierre-total-txt" class="text-danger">$U 0</span></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger btn-sm w-100" onclick="confirmarCierreCaja()">Confirmar Cierre de Turno</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CRÉDITOS Y FIADOS (INTEGRADO COMPLETO) -->
+    <div class="modal fade" id="modalCreditos" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fs-6"><i class="fas fa-address-book me-2"></i>Gestión de Créditos y Fiados</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Registro de Nuevo Cliente / Crédito -->
+                    <div class="card p-3 mb-3 bg-light border-0">
+                        <h6 class="fw-bold text-secondary mb-2 small"><i class="fas fa-user-plus me-1"></i>Registrar Nuevo Cliente o Deuda</h6>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <input type="text" id="nombreCliente" class="form-control form-control-sm" placeholder="Nombre completo del cliente">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="number" id="deudaInicial" class="form-control form-control-sm" placeholder="Monto deuda inicial ($U)">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-primary btn-sm w-100 fw-bold" onclick="agregarClienteCredito()">Agregar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buscador Alfabético -->
+                    <div class="mb-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="inputBuscadorCreditos" class="form-control form-control-sm" placeholder="Buscar por letra o nombre de cliente..." oninput="filtrarClientesCredito()">
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Clientes -->
+                    <div class="table-responsive" style="max-height: 250px;">
+                        <table class="table table-sm table-hover table-striped text-center align-middle" style="font-size: 13px;" id="tablaCreditos">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="text-start">Cliente</th>
+                                    <th>Deuda Actual</th>
+                                    <th>Monto Entrega</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="4" class="text-muted">No hay créditos registrados</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ADMIN LOGIN -->
+    <div class="modal fade" id="modalAdmin" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fs-6">Acceso Administrador</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small">PIN Administrador:</label>
+                        <input type="password" id="input-admin-pass" class="form-control form-control-sm" placeholder="PIN (6272)">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-info btn-sm w-100 text-white" onclick="verificarAccesoAdmin()">Entrar al Dashboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PRODUCTO -->
+    <div class="modal fade" id="modalProducto" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fs-6" id="titulo-modal-producto">Artículo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="prod-editando-codigo">
+                    <div class="mb-2"><label class="form-label small">Código:</label><input type="text" id="prod-codigo" class="form-control form-control-sm"></div>
+                    <div class="mb-2"><label class="form-label small">Nombre del Corte:</label><input type="text" id="prod-nombre" class="form-control form-control-sm"></div>
+                    <div class="mb-2"><label class="form-label small">Categoría:</label><input type="text" id="prod-categoria" class="form-control form-control-sm" value="Carnicería" readonly></div>
+                    <div class="mb-2"><label class="form-label small">Precio por Kilo/Un ($U):</label><input type="number" id="prod-precio" class="form-control form-control-sm"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success btn-sm w-100" onclick="guardarProductoAdmin()">Guardar Artículo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ALERTA GENÉRICA -->
+    <div class="modal fade" id="modalAlerta" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content text-center p-3">
+                <div class="mb-2"><i class="fas fa-info-circle text-primary fa-2x"></i></div>
+                <p id="texto-alerta-personalizada" class="small mb-3">Mensaje</p>
+                <button class="btn btn-dark btn-sm" data-bs-dismiss="modal">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS y Script Principal -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- LÓGICA DE CRÉDITOS Y MANEJO DEL MODAL DE CRÉDITOS -->
+    <script>
+        let listaCreditos = JSON.parse(localStorage.getItem('creditos_carniceria')) || [];
+
+        function abrirModalCreditos() {
+            filtrarClientesCredito();
+            const modalCreditos = new bootstrap.Modal(document.getElementById('modalCreditos'));
+            modalCreditos.show();
         }
 
-        listaCreditos.push({ nombre: nombre, deuda: deuda });
-        document.getElementById('nombreCliente').value = '';
-        document.getElementById('deudaInicial').value = '';
-        guardarYRenderizar();
-    }
-
-    function registrarEntrega(index) {
-        const inputEntrega = document.getElementById(`entrega-${index}`);
-        const entrega = parseFloat(inputEntrega.value) || 0;
-
-        if (entrega <= 0) {
-            alert('Ingresa un monto válido para la entrega.');
-            return;
+        function guardarYRenderizarCreditos() {
+            localStorage.setItem('creditos_carniceria', JSON.stringify(listaCreditos));
+            filtrarClientesCredito();
         }
 
-        if (entrega > listaCreditos[index].deuda) {
-            alert('La entrega no puede ser mayor a la deuda actual.');
-            return;
+        function agregarClienteCredito() {
+            const nombreInput = document.getElementById('nombreCliente');
+            const deudaInput = document.getElementById('deudaInicial');
+            const nombre = nombreInput.value.trim();
+            const deuda = parseFloat(deudaInput.value) || 0;
+
+            if (!nombre) {
+                alert('Por favor ingrese el nombre del cliente.');
+                return;
+            }
+
+            listaCreditos.push({ nombre: nombre, deuda: deuda });
+            nombreInput.value = '';
+            deudaInput.value = '';
+            document.getElementById('inputBuscadorCreditos').value = '';
+            guardarYRenderizarCreditos();
         }
 
-        // Realiza la resta automática
-        listaCreditos[index].deuda -= entrega;
-        
-        // Limpiar input y actualizar
-        inputEntrega.value = '';
-        guardarYRenderizar();
-    }
+        function registrarEntregaCredito(indexReal) {
+            const inputEntrega = document.getElementById(`entrega-credito-${indexReal}`);
+            const entrega = parseFloat(inputEntrega.value) || 0;
 
-    function renderizarTabla() {
-        const tbody = document.querySelector('#tablaCreditos tbody');
-        tbody.innerHTML = '';
+            if (entrega <= 0) {
+                alert('Ingrese un monto válido para la entrega.');
+                return;
+            }
 
-        if (listaCreditos.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #7f8c8d;">No hay clientes con créditos registrados.</td></tr>`;
-            return;
+            if (entrega > listaCreditos[indexReal].deuda) {
+                alert('La entrega no puede superar la deuda total del cliente.');
+                return;
+            }
+
+            listaCreditos[indexReal].deuda -= entrega;
+            guardarYRenderizarCreditos();
         }
 
-        listaCreditos.forEach((cliente, index) => {
-            tbody.innerHTML += `
-                <tr>
-                    <td><strong>${cliente.nombre}</strong></td>
-                    <td>$${cliente.deuda.toFixed(2)}</td>
-                    <td>
-                        <input type="number" id="entrega-${index}" placeholder="Ej: 500" style="width: 120px;">
-                    </td>
-                    <td>
-                        <button class="btn-pagar" onclick="registrarEntrega(${index})">Aplicar Pago</button>
-                    </td>
-                </tr>
-            `;
-        });
-    }
+        function filtrarClientesCredito() {
+            const textoBusqueda = (document.getElementById('inputBuscadorCreditos')?.value || '').toLowerCase();
+            const tbody = document.querySelector('#tablaCreditos tbody');
+            if (!tbody) return;
 
-    // Cargar la tabla al iniciar la página
-    renderizarTabla();
-</script>
+            tbody.innerHTML = '';
 
+            const clientesFiltrados = listaCreditos.map((cliente, index) => {
+                return { ...cliente, indexOriginal: index };
+            }).filter(cliente => cliente.nombre.toLowerCase().includes(textoBusqueda));
+
+            if (clientesFiltrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-muted">No hay créditos registrados que coincidan.</td></tr>`;
+                return;
+            }
+
+            clientesFiltrados.forEach(cliente => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-start"><strong>${cliente.nombre}</strong></td>
+                        <td class="text-danger fw-bold">$U ${cliente.deuda.toFixed(2)}</td>
+                        <td>
+                            <input type="number" id="entrega-credito-${cliente.indexOriginal}" placeholder="Ej. 500" class="form-control form-control-sm text-center d-inline-block" style="max-width: 100px;">
+                        </td>
+                        <td>
+                            <button class="btn btn-success btn-sm py-1 px-2" onclick="registrarEntregaCredito(${cliente.indexOriginal})"><i class="fas fa-hand-holding-usd me-1"></i>Pagar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+    </script>
+
+    <!-- Archivo JavaScript General de la aplicación -->
+    <script src="app.js"></script>
 </body>
-</html>
+    </html>
